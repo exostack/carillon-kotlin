@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Debug builds only. Android refuses cleartext HTTP since API 28, and the one
+  legitimate exception a bench has is the developer's own machine: 10.0.2.2 is
+  the emulator's alias for the host's loopback, localhost covers `adb reverse`
+  on a physical phone. A release build keeps the platform default — refusing —
+  which is exactly right for an SDK that only ever talks to HTTPS endpoints.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <application android:networkSecurityConfig="@xml/network_security_config" />
+</manifest>

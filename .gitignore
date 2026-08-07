@@ -1,0 +1,10 @@
+.DS_Store
+.gradle/
+build/
+local.properties
+.idea/
+*.iml
+# Public by construction — it ships inside every APK — but it names a personal
+# Firebase project, and the example must not assume anyone's. Bring your own:
+# Firebase console > add an Android app with this package > download.
+example/google-services.json

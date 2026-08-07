@@ -1,0 +1,29 @@
+# Pinned against the live registries at scaffold time. Bump deliberately.
+#
+# kotlin-test follows the Kotlin compiler EMBEDDED in this AGP version (2.2.0
+# for AGP 9.3), never the latest JetBrains release: since AGP 9 the Android
+# plugin owns the compiler, and a newer stdlib carries metadata it cannot read.
+[versions]
+agp = "9.3.0"
+kotlin-test = "2.2.0"
+firebase-messaging = "25.1.1"
+# The example app's own concern, never the library's: it turns
+# google-services.json into resources at build time. The SDK ships without it —
+# the customer's app brings its own Firebase wiring, exactly as this one does.
+google-services = "4.4.4"
+# Not a third party in the sense the zero-dependency posture forbids: coroutines
+# are the language's own concurrency vocabulary, and the specification states the
+# exception so that it is a decision rather than a drift. Versioned on its own
+# line because kotlinx tracks its own releases, not the compiler's.
+coroutines = "1.10.2"
+
+[libraries]
+firebase-messaging = { module = "com.google.firebase:firebase-messaging", version.ref = "firebase-messaging" }
+kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test-junit", version.ref = "kotlin-test" }
+coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "coroutines" }
+coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "coroutines" }
+
+[plugins]
+android-library = { id = "com.android.library", version.ref = "agp" }
+android-application = { id = "com.android.application", version.ref = "agp" }
+google-services = { id = "com.google.gms.google-services", version.ref = "google-services" }

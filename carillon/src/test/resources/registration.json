@@ -1,0 +1,196 @@
+{
+  "cases" : [
+    {
+      "expect" : {
+        "body" : {
+          "app_version" : "1.4.2",
+          "environment" : "sandbox",
+          "external_id" : "user-42",
+          "locale" : "fr-FR",
+          "opted_in" : true,
+          "platform" : "ios",
+          "sdk_version" : "0.1.0",
+          "tags" : {
+            "beta" : true,
+            "plan" : "pro",
+            "ratio" : 1.5,
+            "seats" : 5
+          },
+          "timezone_id" : "Europe/Paris",
+          "token" : "abababababababababababababababababababababababababababababababab"
+        },
+        "method" : "POST",
+        "path" : "/v1/devices"
+      },
+      "given" : {
+        "app_version" : "1.4.2",
+        "environment" : "sandbox",
+        "external_id" : "user-42",
+        "locale" : "fr-FR",
+        "opted_in" : true,
+        "sdk_version" : "0.1.0",
+        "tags" : {
+          "beta" : true,
+          "plan" : "pro",
+          "ratio" : 1.5,
+          "seats" : 5
+        },
+        "timezone_id" : "Europe/Paris",
+        "token" : "abababababababababababababababababababababababababababababababab"
+      },
+      "name" : "every field the table carries"
+    },
+    {
+      "expect" : {
+        "body" : {
+          "app_version" : null,
+          "environment" : "production",
+          "external_id" : null,
+          "locale" : null,
+          "opted_in" : true,
+          "platform" : "ios",
+          "sdk_version" : "0.1.0",
+          "tags" : {
+
+          },
+          "timezone_id" : null,
+          "token" : "abababababababababababababababababababababababababababababababab"
+        },
+        "method" : "POST",
+        "path" : "/v1/devices"
+      },
+      "given" : {
+        "app_version" : null,
+        "environment" : "production",
+        "external_id" : null,
+        "locale" : null,
+        "opted_in" : true,
+        "sdk_version" : "0.1.0",
+        "tags" : {
+
+        },
+        "timezone_id" : null,
+        "token" : "abababababababababababababababababababababababababababababababab"
+      },
+      "name" : "a device that has only just registered",
+      "note" : "Nothing but a token. Every other field is sent as null rather than omitted, because the server reads an absent field as unchanged."
+    },
+    {
+      "expect" : {
+        "body" : {
+          "app_version" : "1.4.2",
+          "environment" : "sandbox",
+          "external_id" : null,
+          "locale" : "fr-FR",
+          "opted_in" : true,
+          "platform" : "ios",
+          "sdk_version" : "0.1.0",
+          "tags" : {
+            "plan" : "pro"
+          },
+          "timezone_id" : "Europe/Paris",
+          "token" : "abababababababababababababababababababababababababababababababab"
+        },
+        "method" : "POST",
+        "path" : "/v1/devices"
+      },
+      "given" : {
+        "app_version" : "1.4.2",
+        "environment" : "sandbox",
+        "external_id" : null,
+        "locale" : "fr-FR",
+        "opted_in" : true,
+        "sdk_version" : "0.1.0",
+        "tags" : {
+          "plan" : "pro"
+        },
+        "timezone_id" : "Europe/Paris",
+        "token" : "abababababababababababababababababababababababababababababababab"
+      },
+      "name" : "an identity that has been cleared",
+      "note" : "external_id must travel as an explicit null. Omitting it would leave the previous identifier in place for ever, with nothing failing to say so."
+    },
+    {
+      "expect" : {
+        "body" : {
+          "app_version" : "2.0.0",
+          "environment" : "production",
+          "external_id" : "user-42",
+          "locale" : "en-US",
+          "opted_in" : false,
+          "platform" : "ios",
+          "sdk_version" : "0.1.0",
+          "tags" : {
+
+          },
+          "timezone_id" : "America/New_York",
+          "token" : "abababababababababababababababababababababababababababababababab"
+        },
+        "method" : "POST",
+        "path" : "/v1/devices"
+      },
+      "given" : {
+        "app_version" : "2.0.0",
+        "environment" : "production",
+        "external_id" : "user-42",
+        "locale" : "en-US",
+        "opted_in" : false,
+        "sdk_version" : "0.1.0",
+        "tags" : {
+
+        },
+        "timezone_id" : "America/New_York",
+        "token" : "abababababababababababababababababababababababababababababababab"
+      },
+      "name" : "a device that has opted out",
+      "note" : "The row stays and stays reachable: opting out is a state, not a deletion."
+    },
+    {
+      "expect" : {
+        "body" : {
+          "app_version" : "1.0.0",
+          "environment" : "sandbox",
+          "external_id" : null,
+          "locale" : "fr",
+          "opted_in" : true,
+          "platform" : "ios",
+          "sdk_version" : "0.1.0",
+          "tags" : {
+            "flag" : false,
+            "fractional" : 1.5,
+            "text" : "pro",
+            "whole" : 5
+          },
+          "timezone_id" : "Europe/Paris",
+          "token" : "abababababababababababababababababababababababababababababababab"
+        },
+        "method" : "POST",
+        "path" : "/v1/devices"
+      },
+      "given" : {
+        "app_version" : "1.0.0",
+        "environment" : "sandbox",
+        "external_id" : null,
+        "locale" : "fr",
+        "opted_in" : true,
+        "sdk_version" : "0.1.0",
+        "tags" : {
+          "flag" : false,
+          "fractional" : 1.5,
+          "text" : "pro",
+          "whole" : 5
+        },
+        "timezone_id" : "Europe/Paris",
+        "token" : "abababababababababababababababababababababababababababababababab"
+      },
+      "name" : "the four tag value types",
+      "note" : "Scalars only, and each keeps its type on the wire: a boolean that arrives as 1 is an audience filter that silently stops matching."
+    }
+  ],
+  "description" : "Given the SDK's device state, the exact body POST /v1/devices must receive. The SDK holds the whole state and sends it whole; the server replaces what it holds.",
+  "endpoint" : {
+    "method" : "POST",
+    "path" : "/v1/devices"
+  },
+  "schema_version" : 1
+}
