@@ -1,6 +1,14 @@
 plugins {
   alias(libs.plugins.android.library)
+  `maven-publish`
 }
+
+// The coordinate, and the one the SDK reports at registration. Kept beside
+// `Carillon.SDK_VERSION`, which is the value a customer reads in a support
+// ticket; the two say the same thing and are bumped together.
+group = "dev.carillon"
+
+version = "0.1.0"
 
 android {
   namespace = "dev.carillon.sdk"
@@ -9,6 +17,8 @@ android {
   defaultConfig {
     minSdk = 24
   }
+
+  publishing { singleVariant("release") { withSourcesJar() } }
 
   compileOptions {
     sourceCompatibility = JavaVersion.VERSION_17
@@ -46,4 +56,20 @@ dependencies {
 
   testImplementation(libs.kotlin.test)
   testImplementation(libs.coroutines.test)
+}
+
+// `dev.carillon:carillon`, the coordinate Maven Central will carry. Until it
+// does, `./gradlew publishToMavenLocal` puts it where a wrapper can resolve it
+// — the same coordinate, so nothing about a consumer changes on the day the
+// artifact stops being local. The published POM carries the two `api`
+// dependencies above, which is what makes an app that only declares this one
+// still compile against `RemoteMessage` and against a coroutine scope.
+publishing {
+  publications {
+    register<MavenPublication>("release") {
+      artifactId = "carillon"
+
+      afterEvaluate { from(components["release"]) }
+    }
+  }
 }
