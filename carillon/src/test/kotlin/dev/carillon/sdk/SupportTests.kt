@@ -104,7 +104,14 @@ class DebugInfoTests {
     val engine =
       makeEngine(transport = transport, clock = clock, store = store, key = "carillon_mk_test_abc")
 
-    engine.refreshDeviceAttributes("Europe/Paris", "fr-FR", "1.4.2")
+    engine.refreshDeviceAttributes(
+      "Europe/Paris",
+      "fr-FR",
+      "1.4.2",
+      "4271",
+      "com.example.app",
+      "18.5",
+    )
     engine.setToken(FCM_TOKEN)
     engine.settle()
 
@@ -121,6 +128,11 @@ class DebugInfoTests {
     assertEquals(FCM_TOKEN, info.token)
     assertEquals("01937b1e-0000-7000-8000-000000000001", info.deviceId)
     assertEquals("production", info.environment)
+    assertEquals("com.example.app", info.bundleId)
+    assertEquals("4271", info.appBuild)
+    assertEquals("18.5", info.osVersion)
+    // The first thing to look at when an integration is right and nothing shows.
+    assertEquals("allowed", info.pushPermission)
     assertEquals(clock.nowMs(), info.lastRegistrationAtMs)
     assertEquals("registered", info.lastRegistrationResult)
     assertEquals(1, info.queuedEvents)

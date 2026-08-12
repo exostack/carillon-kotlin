@@ -1,11 +1,9 @@
 package dev.carillon.example
 
-import android.Manifest
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.graphics.Typeface
-import android.os.Build
 import android.os.Bundle
 import android.text.InputType
 import android.util.TypedValue
@@ -91,19 +89,21 @@ class MainActivity : Activity() {
 
     Carillon.configure(this, key = key, endpoint = endpoint, debug = true)
     append("configured for $endpoint with ${if (key.isEmpty()) "no key" else key}")
+    append("registering silently — nothing is asked; watch device_id appear below")
+
+    // The token comes back from Firebase on a coroutine of the SDK's own, and
+    // the registration a moment after it. Re-read on a delay so the panel shows
+    // the device the server named rather than the emptiness before it.
     refreshInfo()
+    infoView.postDelayed({ refreshInfo() }, 2_000)
   }
 
-  private fun register() {
-    // The runtime permission is the app's to request — asking needs an activity,
-    // which is why the SDK reads the answer rather than raising the dialogue.
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-      requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 0)
-    }
-
+  private fun requestPermission() {
     scope.launch {
-      val outcome = Carillon.register()
-      append("register() → $outcome")
+      // The dialogue is the SDK's to raise now, which is why this hands it an
+      // activity. The device is already registered either way.
+      val permission = Carillon.requestPermission(this@MainActivity)
+      append("requestPermission() → $permission")
       refreshInfo()
     }
   }
@@ -126,7 +126,10 @@ class MainActivity : Activity() {
     column.addView(button("Apply") { applyConfiguration() })
 
     column.addView(heading("Registration"))
-    column.addView(button("register()") { register() })
+    column.addView(
+      note("Configure registers this device on its own. This asks whether Android may show anything.")
+    )
+    column.addView(button("requestPermission()") { requestPermission() })
 
     column.addView(heading("Identity"))
     externalIdField = field("external_id", "")
@@ -227,6 +230,13 @@ class MainActivity : Activity() {
       setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
       setPadding(0, 40, 0, 8)
       gravity = Gravity.START
+    }
+
+  private fun note(text: String): TextView =
+    TextView(this).apply {
+      this.text = text
+      setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+      setPadding(0, 0, 0, 8)
     }
 
   private fun field(hint: String, value: String, monospace: Boolean = false): EditText =

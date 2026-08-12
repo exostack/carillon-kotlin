@@ -1,2 +1,27 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest />
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+  <!--
+    Declared here because asking is now the SDK's job.
+
+    An app can only be granted a permission its own manifest declares, and this
+    one is requested by `Carillon.requestPermission()` rather than by the
+    customer's code — so requiring them to remember the line would make the call
+    silently answer "denied" in every integration that forgot it. Firebase
+    Messaging declares the same permission for the same reason.
+  -->
+  <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+  <application>
+    <!--
+      Invisible, and the only way to await an answer without androidx: Android
+      delivers a permission result to an activity and to nothing else. See
+      PermissionRequestActivity.
+    -->
+    <activity
+      android:name="dev.carillon.sdk.PermissionRequestActivity"
+      android:exported="false"
+      android:configChanges="orientation|screenSize|keyboardHidden"
+      android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+  </application>
+</manifest>

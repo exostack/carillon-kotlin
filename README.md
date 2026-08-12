@@ -9,8 +9,15 @@ and is never published.
 ## Integrating
 
 ```kotlin
+// Registers this device. Nobody is prompted: an FCM token is transport
+// addressing, not consent, so the handset is in your base from its first launch
+// carrying the permission it really has.
 Carillon.configure(context, key = "carillon_mk_live_…", debug = true)
-Carillon.register()   // suspending; DENIED when POST_NOTIFICATIONS is refused
+
+// A separate decision, made whenever your app has earned the right to ask.
+// Suspending, and it takes the activity the dialogue belongs to; the new
+// permission reaches the server on its own.
+Carillon.requestPermission(activity)   // ALLOWED | DENIED
 ```
 
 Declare the service the SDK ships, or forward two calls from your own

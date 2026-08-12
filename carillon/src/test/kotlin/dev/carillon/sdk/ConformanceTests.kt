@@ -121,6 +121,14 @@ class ConformanceTests {
       timezoneId = given["timezone_id"] as? String,
       locale = given["locale"] as? String,
       appVersion = given["app_version"] as? String,
+      appBuild = given["app_build"] as? String,
+      bundleId = given["bundle_id"] as? String,
+      osVersion = given["os_version"] as? String,
+      // Read from the case rather than derived, for the reason `environment` is:
+      // the vectors carry the protocol's four states and two of them are iOS's
+      // alone. That this SDK only ever produces two of them is asserted where it
+      // is decided, against the permission seam.
+      pushPermission = given["push_permission"] as? String,
       sdkVersion = given["sdk_version"] as? String,
       optedIn = given["opted_in"] as? Boolean ?: true,
     )

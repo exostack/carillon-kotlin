@@ -19,7 +19,14 @@ class RegistrationTests {
     val transport = FakeTransport()
     val engine = makeEngine(transport = transport)
 
-    engine.refreshDeviceAttributes("Europe/Paris", "fr-FR", "1.4.2")
+    engine.refreshDeviceAttributes(
+      "Europe/Paris",
+      "fr-FR",
+      "1.4.2",
+      "4271",
+      "com.example.app",
+      "18.5",
+    )
     engine.identify("user-42")
     engine.setTags(mapOf("plan" to tagOf("pro"), "seats" to tagOf(5), "beta" to tagOf(true)))
     engine.setToken(FCM_TOKEN)
@@ -38,6 +45,10 @@ class RegistrationTests {
     assertEquals("Europe/Paris", body["timezone_id"])
     assertEquals("fr-FR", body["locale"])
     assertEquals("1.4.2", body["app_version"])
+    assertEquals("4271", body["app_build"])
+    assertEquals("com.example.app", body["bundle_id"])
+    assertEquals("18.5", body["os_version"])
+    assertEquals("allowed", body["push_permission"])
     assertEquals(Carillon.SDK_VERSION, body["sdk_version"])
     assertEquals(true, body["opted_in"])
 
@@ -305,42 +316,150 @@ class RegistrationTests {
   }
 
   @Test
-  fun refusesToRegisterWhenNotificationsAreNotPermitted() = runBlocking {
-    // API 33 and above: the runtime permission is the app's to request, because
-    // asking needs an activity. The SDK reads the answer and says so.
+  fun reportsNotificationsAsDeniedWhenTheSystemWouldShowNone() = runBlocking {
+    // The seam answers `areNotificationsEnabled()` rather than the runtime
+    // permission, and one question covers two cases because of it: an app whose
+    // notifications were switched off in Settings has been granted everything it
+    // ever asked for and will still show nothing. That is the case a customer
+    // opens a ticket about, and the one this field exists to answer.
     val transport = FakeTransport()
     val engine = makeEngine(transport = transport, permissions = { false })
 
-    assertEquals(RegistrationOutcome.DENIED, engine.register())
+    engine.refreshPushPermission()
+    engine.setToken(FCM_TOKEN)
     engine.settle()
 
-    assertTrue(transport.requests.isEmpty())
+    assertEquals("denied", transport.bodies.last()["push_permission"])
+  }
+
+  @Test
+  fun registersAgainWhenTheNotificationPermissionChanges() = runBlocking {
+    // The mechanism is the fingerprint, and it is the serialised body: a state
+    // saying something new about the handset is by construction a state the
+    // server has not been told. Nobody switches this from inside the app — it
+    // changes in Settings, while the process is not running — so the next launch
+    // discovering it is the only thing that carries it, and a launch that
+    // discovers nothing still costs no call.
+    val transport = FakeTransport()
+    var enabled = true
+    val engine = makeEngine(transport = transport, permissions = { enabled })
+
+    engine.refreshPushPermission()
+    engine.setToken(FCM_TOKEN)
+    engine.settle()
+    assertEquals(1, transport.requests.size)
+    assertEquals("allowed", transport.bodies.last()["push_permission"])
+
+    engine.refreshPushPermission()
+    engine.settle()
+    assertEquals(1, transport.requests.size)
+
+    enabled = false
+    engine.refreshPushPermission()
+    engine.settle()
+
+    assertEquals(2, transport.requests.size)
+    assertEquals("denied", transport.bodies.last()["push_permission"])
   }
 
   @Test
   fun registersWithTheTokenFirebaseReturns() = runBlocking {
+    // What `configure` does, and the whole of the new model: a token is asked
+    // for, the device registers, and nobody is prompted. A base holding only
+    // the people who were asked and said yes measures an app's onboarding
+    // rather than its reach.
     val transport = FakeTransport()
-    val engine = makeEngine(transport = transport, tokenSource = { FCM_TOKEN })
+    val prompt = FakePermissionRequest()
+    val engine =
+      makeEngine(transport = transport, tokenSource = { FCM_TOKEN }, permissions = { false })
 
-    assertEquals(RegistrationOutcome.REGISTERED, engine.register())
+    // The order `configure` uses: what the system can be asked is read first,
+    // then the token is requested, so the first registration carries the truth
+    // rather than a null it would have to correct a moment later.
+    engine.refreshPushPermission()
+    engine.acquireToken()
     engine.settle()
 
     assertEquals(FCM_TOKEN, transport.bodies.last()["token"])
+    // The permission it really has travels with it: this handset would show
+    // nothing today, and the row says so rather than not existing.
+    assertEquals("denied", transport.bodies.last()["push_permission"])
+    assertEquals(0, prompt.shown, "configuring the SDK must never show a dialogue")
   }
 
   @Test
-  fun saysRegisteredEvenWhenFirebaseCouldNotProduceAToken() = runBlocking {
-    // The outcome is about permission, exactly as on iOS, where `.registered`
-    // also means "asked for" rather than "arrived". A token Firebase could not
-    // produce is transient — no Play Services, or offline — and nothing the
-    // caller can act on differently. It is a line in the log and in debugInfo().
+  fun asksFirebaseOnlyOnceWhileOneRequestIsInFlight() = runBlocking {
+    // configure() can be called again — a bench switching endpoints does it on
+    // every Apply — and two token requests would race to write the same field.
+    val transport = FakeTransport()
+    val engine = makeEngine(transport = transport, tokenSource = { FCM_TOKEN })
+
+    engine.acquireToken()
+    engine.acquireToken()
+    engine.settle()
+
+    assertEquals(1, transport.requests.size)
+  }
+
+  @Test
+  fun registersNothingWhenFirebaseCouldNotProduceAToken() = runBlocking {
+    // Transient — no Play Services, or offline — and nothing a caller could act
+    // on differently. It is a line in the log and in debugInfo(), and the token
+    // may still arrive later through didRotate.
     val transport = FakeTransport()
     val engine = makeEngine(transport = transport, tokenSource = { null })
 
-    assertEquals(RegistrationOutcome.REGISTERED, engine.register())
+    engine.acquireToken()
     engine.settle()
 
     assertTrue(transport.requests.isEmpty())
     assertNotEquals("registered", engine.debugInfo().lastRegistrationResult)
+  }
+
+  @Test
+  fun requestPermissionShowsTheDialogueAndAnswersWithWhatItDecided() = runBlocking {
+    // The person says yes: the fake flips what the system reports, exactly as
+    // granting the permission would.
+    var enabled = false
+    val transport = FakeTransport()
+    val prompt = FakePermissionRequest { enabled = true }
+    val engine = makeEngine(transport = transport, permissions = { enabled })
+
+    engine.setToken(FCM_TOKEN)
+    engine.settle()
+
+    assertEquals(PushPermission.ALLOWED, engine.requestPermission(prompt))
+    engine.settle()
+
+    assertEquals(1, prompt.shown)
+    // No call of its own: the permission is part of the state, so it is part of
+    // the fingerprint, so the registration loop is what carries it.
+    assertEquals("allowed", transport.bodies.last()["push_permission"])
+  }
+
+  @Test
+  fun requestPermissionAnswersDeniedWhenNothingChanged() = runBlocking {
+    // A refusal, and a dismissal, and a system that showed nothing at all: from
+    // here they are the same answer, because the question is only ever whether
+    // a notification would be displayed.
+    val prompt = FakePermissionRequest()
+    val engine = makeEngine(permissions = { false })
+
+    assertEquals(PushPermission.DENIED, engine.requestPermission(prompt))
+
+    assertEquals(1, prompt.shown)
+  }
+
+  @Test
+  fun requestPermissionShowsNothingWhenThereIsNothingToAsk() = runBlocking {
+    // Notifications are already enabled — below API 33 they need no permission
+    // at all, and above it this app has been granted one. A dialogue exists to
+    // change an answer, not to confirm one.
+    val prompt = FakePermissionRequest()
+    val engine = makeEngine(permissions = { true })
+
+    assertEquals(PushPermission.ALLOWED, engine.requestPermission(prompt))
+
+    assertEquals(0, prompt.shown)
   }
 }

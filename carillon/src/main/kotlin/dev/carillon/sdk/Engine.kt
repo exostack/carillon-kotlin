@@ -44,6 +44,7 @@ internal class Engine(
   private var state: DeviceState
   private var registrationJob: Job? = null
   private var eventJob: Job? = null
+  private var tokenJob: Job? = null
   private var lastRegistrationAtMs: Long? = null
   private var lastRegistrationResult: String? = null
 
@@ -134,30 +135,55 @@ internal class Engine(
   // Registration -------------------------------------------------------------
 
   /**
-   * Asks for a token, if the app is allowed to receive notifications at all.
+   * Asks Firebase for a token, and asks nobody for anything.
    *
-   * The outcome is about permission and nothing else, exactly as on iOS: it says
-   * the device is registered or on its way, not that a token has arrived. A token
-   * that Firebase could not produce is a line in the log and in `debugInfo()`,
-   * because it is transient and nothing the caller can act on differently.
+   * **A push token is transport addressing, not consent.** FCM issues one with
+   * no permission granted and no dialogue shown — a permission gates whether
+   * anything is *displayed* — so the device registers from its first launch,
+   * carrying the permission it really has. A base holding only the people who
+   * were asked and said yes measures an app's onboarding rather than its reach.
+   *
+   * A token Firebase could not produce is a line in the log and in
+   * `debugInfo()`: it is transient — no Play Services, or offline — and nothing
+   * a caller could act on differently.
    */
-  suspend fun register(): RegistrationOutcome {
-    if (!permissions.notificationsAllowed()) {
-      Log.write(isDebugEnabled) { "register() refused: notifications are not permitted" }
+  fun acquireToken() {
+    synchronized(lock) {
+      if (tokenJob != null) return
 
-      return RegistrationOutcome.DENIED
+      tokenJob =
+        scope.launch {
+          val token = tokenSource.currentToken()
+
+          if (token == null) {
+            Log.write(isDebugEnabled) { "no token from Firebase" }
+            record("no token from Firebase")
+          } else {
+            setToken(token)
+          }
+
+          synchronized(lock) { tokenJob = null }
+        }
     }
+  }
 
-    val token = tokenSource.currentToken()
+  /**
+   * Shows the system's permission dialogue, and answers with what it decided.
+   *
+   * One question, one answer. Registration is not part of it — that happened at
+   * `configure` — and the new permission needs no call of its own either: it is
+   * part of the state, so it is part of the fingerprint, so the registration
+   * loop sends it as a matter of course.
+   *
+   * Nothing is asked when the system would already show a notification: a
+   * dialogue exists to change an answer, not to confirm one.
+   */
+  suspend fun requestPermission(request: PermissionRequest): PushPermission {
+    if (!permissions.notificationsEnabled()) request.show()
 
-    if (token == null) {
-      Log.write(isDebugEnabled) { "register(): Firebase returned no token" }
-      record("no token from Firebase")
-    } else {
-      setToken(token)
-    }
+    refreshPushPermission()
 
-    return RegistrationOutcome.REGISTERED
+    return currentPermission()
   }
 
   // The state the app sets ---------------------------------------------------
@@ -180,9 +206,49 @@ internal class Engine(
    * remembered: a person who changes their phone's language has changed which
    * text they should be sent, and a launch is when we find out.
    */
-  fun refreshDeviceAttributes(timezoneId: String?, locale: String?, appVersion: String?) = mutate {
-    it.copy(timezoneId = timezoneId, locale = locale, appVersion = appVersion)
+  fun refreshDeviceAttributes(
+    timezoneId: String?,
+    locale: String?,
+    appVersion: String?,
+    appBuild: String?,
+    bundleId: String?,
+    osVersion: String?,
+  ) {
+    // Read here rather than passed in: the permission is one of the facts this
+    // call exists to re-read, and the engine already holds the seam that answers
+    // it. Read outside the monitor, because a binder call has no business under
+    // a lock the registration loop also takes.
+    val permission = currentPermission()
+
+    mutate {
+      it.copy(
+        timezoneId = timezoneId,
+        locale = locale,
+        appVersion = appVersion,
+        appBuild = appBuild,
+        bundleId = bundleId,
+        osVersion = osVersion,
+        pushPermission = permission.wire,
+      )
+    }
   }
+
+  /**
+   * What the OS will do with a notification for this app, now.
+   *
+   * Nobody in the app calls a setter for this: it changes in Settings, while the
+   * process is not running. The only thing that carries it to the server is the
+   * next launch finding a body it has not sent before — the fingerprint is the
+   * serialised body, so a flip is by construction a reason to register.
+   */
+  fun refreshPushPermission() {
+    val permission = currentPermission()
+
+    mutate { it.copy(pushPermission = permission.wire) }
+  }
+
+  private fun currentPermission(): PushPermission =
+    if (permissions.notificationsEnabled()) PushPermission.ALLOWED else PushPermission.DENIED
 
   private fun mutate(change: (DeviceState) -> DeviceState) {
     synchronized(lock) {
@@ -524,6 +590,10 @@ internal class Engine(
         token = state.token,
         deviceId = store.deviceId,
         environment = state.environment,
+        bundleId = state.bundleId,
+        appBuild = state.appBuild,
+        osVersion = state.osVersion,
+        pushPermission = state.pushPermission,
         lastRegistrationAtMs = lastRegistrationAtMs,
         lastRegistrationResult = lastRegistrationResult,
         queuedEvents = store.events.size,
@@ -544,7 +614,7 @@ internal class Engine(
    */
   suspend fun settle() {
     while (true) {
-      val jobs = synchronized(lock) { listOfNotNull(registrationJob, eventJob) }
+      val jobs = synchronized(lock) { listOfNotNull(registrationJob, eventJob, tokenJob) }
 
       if (jobs.isEmpty()) return
 

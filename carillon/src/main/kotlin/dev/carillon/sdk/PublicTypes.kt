@@ -1,26 +1,24 @@
 package dev.carillon.sdk
 
 /**
- * What `register()` resolved to.
+ * What the operating system will do with a notification for this app.
  *
- * Two cases and no error: neither is a failure the caller can retry, and both
- * are things an app legitimately branches on. A thrown exception would make a
- * person declining notifications look like a bug in the integration.
+ * The protocol's vocabulary, shared with every Carillon SDK, which is why it
+ * carries four values where this platform produces two. `PROVISIONAL` is
+ * Apple's quiet delivery and `UNDETERMINED` a prompt that has not been shown;
+ * Android has neither, because below API 33 nothing is ever asked, and above it
+ * a permission never granted and one refused come to the same thing as far as a
+ * notification appearing is concerned.
  *
- * There is no simulator case, unlike iOS: an Android emulator with Play Services
- * issues a real FCM token and receives real notifications, so there is nothing
- * to warn anybody about.
+ * It is the *display* permission and nothing more. Whether the device can be
+ * addressed at all is a question about its token, which it has from its first
+ * launch whatever this says.
  */
-enum class RegistrationOutcome {
-  /** Permission is in place and a token has been asked for. */
-  REGISTERED,
-
-  /**
-   * The person said no. On API 33 and above that is the `POST_NOTIFICATIONS`
-   * runtime permission; below it, notifications need no permission and this
-   * cannot occur.
-   */
-  DENIED,
+enum class PushPermission(internal val wire: String) {
+  ALLOWED("allowed"),
+  DENIED("denied"),
+  PROVISIONAL("provisional"),
+  UNDETERMINED("undetermined"),
 }
 
 /**
@@ -103,6 +101,15 @@ class DebugInfo(
   val token: String?,
   val deviceId: String?,
   val environment: String,
+  val bundleId: String?,
+  val appBuild: String?,
+  val osVersion: String?,
+  /**
+   * `allowed` or `denied`, and null before the SDK has been given a context to
+   * ask with. A string rather than a type, for the reason [environment] is one:
+   * this is read in a ticket, not switched on.
+   */
+  val pushPermission: String?,
   val lastRegistrationAtMs: Long?,
   val lastRegistrationResult: String?,
   val queuedEvents: Int,
@@ -117,6 +124,10 @@ class DebugInfo(
         "token" to token,
         "device_id" to deviceId,
         "environment" to environment,
+        "bundle_id" to bundleId,
+        "app_build" to appBuild,
+        "os_version" to osVersion,
+        "push_permission" to pushPermission,
         "last_registration_at" to lastRegistrationAtMs?.let(Iso8601::format),
         "last_registration_result" to lastRegistrationResult,
         "queued_events" to queuedEvents,
@@ -136,6 +147,10 @@ class DebugInfo(
         "token" to (token ?: "—"),
         "device_id" to (deviceId ?: "—"),
         "environment" to environment,
+        "bundle_id" to (bundleId ?: "—"),
+        "app_build" to (appBuild ?: "—"),
+        "os_version" to (osVersion ?: "—"),
+        "push_permission" to (pushPermission ?: "—"),
         "last_registration_at" to (lastRegistrationAtMs?.let(Iso8601::format) ?: "—"),
         "last_registration_result" to (lastRegistrationResult ?: "—"),
         "queued_events" to queuedEvents.toString(),

@@ -8,3 +8,4 @@ local.properties
 # Firebase project, and the example must not assume anyone's. Bring your own:
 # Firebase console > add an Android app with this package > download.
 example/google-services.json
+*.hprof

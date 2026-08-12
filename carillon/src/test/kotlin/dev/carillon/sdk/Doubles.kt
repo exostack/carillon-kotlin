@@ -90,6 +90,25 @@ internal class FakeClock(start: Long = 1_770_000_000_000) : Clock {
   }
 }
 
+/**
+ * The system's permission dialogue, counted rather than shown.
+ *
+ * Most of what this exists to prove is a negative: configuring the SDK
+ * registers the device and asks nobody for anything, and a count is the only
+ * way to state that as an assertion. `onShow` is how a test says what the
+ * person answered — a dialogue's effect is on what the system reports
+ * afterwards, never on a value it hands back.
+ */
+internal class FakePermissionRequest(private val onShow: () -> Unit = {}) : PermissionRequest {
+  var shown = 0
+    private set
+
+  override suspend fun show() {
+    shown += 1
+    onShow()
+  }
+}
+
 /** An RFC 9457 body, as the API produces them. */
 internal fun problemBody(
   code: String,

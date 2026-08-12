@@ -1,7 +1,10 @@
 package dev.carillon.sdk
 
+import android.app.Activity
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageInfo
+import android.os.Build
 import com.google.firebase.messaging.RemoteMessage
 import java.util.Locale
 import java.util.TimeZone
@@ -15,8 +18,12 @@ import java.util.TimeZone
  * in store release cycles rather than in a deploy.
  *
  * ```kotlin
+ * // Registers this device. Nobody is prompted: a push token is transport
+ * // addressing, not consent.
  * Carillon.configure(context, key = "carillon_mk_live_…", debug = true)
- * Carillon.register()
+ *
+ * // A separate decision, made whenever the app has a reason to ask.
+ * Carillon.requestPermission(activity)
  * ```
  *
  * Then the two forwarding calls in a `FirebaseMessagingService` and one in the
@@ -25,7 +32,7 @@ import java.util.TimeZone
  */
 object Carillon {
   /** The SDK version reported at registration. */
-  const val SDK_VERSION: String = "0.1.0"
+  const val SDK_VERSION: String = "0.1.1"
 
   /** Production. Overridden for staging, and for nothing else. */
   const val DEFAULT_ENDPOINT: String = "https://api.carillon.dev"
@@ -49,13 +56,22 @@ object Carillon {
               transport = UrlConnectionTransport(DEFAULT_ENDPOINT),
               clock = SystemClock(),
               tokenSource = FirebaseTokenSource(),
+              // Nothing to ask a system that is not here yet. `configure`
+              // replaces this with the real one before anything reads it.
               permissions = Permissions { true },
             )
             .also { installed = it }
       }
 
   /**
-   * Configures the SDK. Call once, early — `Application.onCreate` is the place.
+   * Configures the SDK, and registers this device.
+   *
+   * Registration happens here, silently: no dialogue is shown and none is
+   * needed. The device appears in the customer's base from its first launch,
+   * carrying the permission it actually has. [requestPermission] is a separate
+   * decision, made whenever the app has a reason to ask.
+   *
+   * Call once, early — `Application.onCreate` is the place.
    *
    * @param context any context; the application context is what is retained.
    * @param key a mobile key, `carillon_mk_live_…` or `carillon_mk_test_…`. It is
@@ -89,17 +105,34 @@ object Carillon {
       transport = UrlConnectionTransport(endpoint),
     )
     refreshAttributes(application)
+
+    // The token, asked for now and with nothing asked of anybody. It arrives on
+    // a coroutine of the engine's own, and the registration loop absorbs the
+    // delay exactly as it absorbs a device that starts up offline.
+    engine.acquireToken()
   }
 
   /**
-   * Asks for the FCM token and registers the device.
+   * Shows the system's permission dialogue, and answers with what it decided.
    *
-   * Requesting the `POST_NOTIFICATIONS` runtime permission needs an activity and
-   * is therefore the app's call, not the SDK's — this reads whether it has been
-   * granted and answers [RegistrationOutcome.DENIED] if it has not. Below API 33
-   * a notification needs no permission and this cannot occur.
+   * One question, one answer. It does not register the device — [configure]
+   * already did, and this handset has been in the customer's base since its
+   * first launch. What changes here is whether anything will be *displayed*, and
+   * the new permission reaches the server on its own: it is part of the state,
+   * so it is part of the fingerprint the registration loop compares.
+   *
+   * Takes an `Activity` because Android's request API does, and because a
+   * dialogue belongs to a screen. iOS's equivalent takes nothing — that
+   * asymmetry is the platforms', not ours. Below API 33 there is nothing to ask
+   * for and nothing is shown; the answer then comes from whether notifications
+   * are enabled in Settings, which is where it comes from on every version.
+   *
+   * Suspends until the person has answered. Returns [PushPermission.ALLOWED] or
+   * [PushPermission.DENIED] — the other two states are iOS's.
    */
-  @JvmStatic suspend fun register(): RegistrationOutcome = engine.register()
+  @JvmStatic
+  suspend fun requestPermission(activity: Activity): PushPermission =
+    engine.requestPermission(AndroidPermissionRequest(activity))
 
   /**
    * Forwarded from `FirebaseMessagingService.onNewToken`.
@@ -213,9 +246,9 @@ object Carillon {
    * text they should be sent.
    */
   private fun refreshAttributes(context: Context) {
-    val version =
+    val info =
       try {
-        context.packageManager.getPackageInfo(context.packageName, 0).versionName
+        context.packageManager.getPackageInfo(context.packageName, 0)
       } catch (error: Exception) {
         null
       }
@@ -226,9 +259,30 @@ object Carillon {
       // `fr_FR` with an underscore, and the server would take it for a tag it
       // does not know.
       locale = Locale.getDefault().toLanguageTag(),
-      appVersion = version,
+      appVersion = info?.versionName,
+      appBuild = info?.let(::buildOf),
+      bundleId = context.packageName,
+      // Verbatim. `RELEASE` is what a person reads on their phone — "14", and
+      // "15 QPR1" on the builds where Google says so — while `SDK_INT` is the
+      // API level, a different number that answers a different question.
+      osVersion = Build.VERSION.RELEASE,
     )
   }
+
+  /**
+   * The monotonic build, as a string.
+   *
+   * `versionCode` was widened to a long in API 28 and the narrow accessor
+   * deprecated with it; both are read here because this SDK runs from API 24. A
+   * string on the wire, because iOS's `CFBundleVersion` is text and one field
+   * cannot be two types.
+   */
+  private fun buildOf(info: PackageInfo): String =
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+      info.longVersionCode.toString()
+    } else {
+      @Suppress("DEPRECATION") info.versionCode.toString()
+    }
 
   private const val PREFERENCES = "dev.carillon.sdk"
 }

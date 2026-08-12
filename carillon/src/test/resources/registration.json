@@ -3,12 +3,16 @@
     {
       "expect" : {
         "body" : {
+          "app_build" : "4271",
           "app_version" : "1.4.2",
+          "bundle_id" : "com.example.app",
           "environment" : "sandbox",
           "external_id" : "user-42",
           "locale" : "fr-FR",
           "opted_in" : true,
+          "os_version" : "18.5",
           "platform" : "ios",
+          "push_permission" : "allowed",
           "sdk_version" : "0.1.0",
           "tags" : {
             "beta" : true,
@@ -23,11 +27,15 @@
         "path" : "/v1/devices"
       },
       "given" : {
+        "app_build" : "4271",
         "app_version" : "1.4.2",
+        "bundle_id" : "com.example.app",
         "environment" : "sandbox",
         "external_id" : "user-42",
         "locale" : "fr-FR",
         "opted_in" : true,
+        "os_version" : "18.5",
+        "push_permission" : "allowed",
         "sdk_version" : "0.1.0",
         "tags" : {
           "beta" : true,
@@ -43,12 +51,16 @@
     {
       "expect" : {
         "body" : {
+          "app_build" : null,
           "app_version" : null,
+          "bundle_id" : null,
           "environment" : "production",
           "external_id" : null,
           "locale" : null,
           "opted_in" : true,
+          "os_version" : null,
           "platform" : "ios",
+          "push_permission" : null,
           "sdk_version" : "0.1.0",
           "tags" : {
 
@@ -60,11 +72,15 @@
         "path" : "/v1/devices"
       },
       "given" : {
+        "app_build" : null,
         "app_version" : null,
+        "bundle_id" : null,
         "environment" : "production",
         "external_id" : null,
         "locale" : null,
         "opted_in" : true,
+        "os_version" : null,
+        "push_permission" : null,
         "sdk_version" : "0.1.0",
         "tags" : {
 
@@ -78,12 +94,16 @@
     {
       "expect" : {
         "body" : {
+          "app_build" : "4271",
           "app_version" : "1.4.2",
+          "bundle_id" : "com.example.app",
           "environment" : "sandbox",
           "external_id" : null,
           "locale" : "fr-FR",
           "opted_in" : true,
+          "os_version" : "18.5",
           "platform" : "ios",
+          "push_permission" : "allowed",
           "sdk_version" : "0.1.0",
           "tags" : {
             "plan" : "pro"
@@ -95,11 +115,15 @@
         "path" : "/v1/devices"
       },
       "given" : {
+        "app_build" : "4271",
         "app_version" : "1.4.2",
+        "bundle_id" : "com.example.app",
         "environment" : "sandbox",
         "external_id" : null,
         "locale" : "fr-FR",
         "opted_in" : true,
+        "os_version" : "18.5",
+        "push_permission" : "allowed",
         "sdk_version" : "0.1.0",
         "tags" : {
           "plan" : "pro"
@@ -113,12 +137,16 @@
     {
       "expect" : {
         "body" : {
+          "app_build" : "980",
           "app_version" : "2.0.0",
+          "bundle_id" : "com.example.app",
           "environment" : "production",
           "external_id" : "user-42",
           "locale" : "en-US",
           "opted_in" : false,
+          "os_version" : "18.5",
           "platform" : "ios",
+          "push_permission" : "allowed",
           "sdk_version" : "0.1.0",
           "tags" : {
 
@@ -130,11 +158,15 @@
         "path" : "/v1/devices"
       },
       "given" : {
+        "app_build" : "980",
         "app_version" : "2.0.0",
+        "bundle_id" : "com.example.app",
         "environment" : "production",
         "external_id" : "user-42",
         "locale" : "en-US",
         "opted_in" : false,
+        "os_version" : "18.5",
+        "push_permission" : "allowed",
         "sdk_version" : "0.1.0",
         "tags" : {
 
@@ -148,12 +180,102 @@
     {
       "expect" : {
         "body" : {
+          "app_build" : "980",
+          "app_version" : "2.0.0",
+          "bundle_id" : "com.example.app",
+          "environment" : "production",
+          "external_id" : "user-42",
+          "locale" : "fr-FR",
+          "opted_in" : true,
+          "os_version" : "26.0",
+          "platform" : "ios",
+          "push_permission" : "denied",
+          "sdk_version" : "0.1.0",
+          "tags" : {
+
+          },
+          "timezone_id" : "Europe/Paris",
+          "token" : "abababababababababababababababababababababababababababababababab"
+        },
+        "method" : "POST",
+        "path" : "/v1/devices"
+      },
+      "given" : {
+        "app_build" : "980",
+        "app_version" : "2.0.0",
+        "bundle_id" : "com.example.app",
+        "environment" : "production",
+        "external_id" : "user-42",
+        "locale" : "fr-FR",
+        "opted_in" : true,
+        "os_version" : "26.0",
+        "push_permission" : "denied",
+        "sdk_version" : "0.1.0",
+        "tags" : {
+
+        },
+        "timezone_id" : "Europe/Paris",
+        "token" : "abababababababababababababababababababababababababababababababab"
+      },
+      "name" : "a handset whose notifications were turned off in Settings",
+      "note" : "opted_in and push_permission are two different refusals: the first is the customer's own switch inside their app, the second is what the operating system will do whatever that switch says. A device can be opted in and denied, which is why both travel."
+    },
+    {
+      "expect" : {
+        "body" : {
+          "app_build" : "1",
           "app_version" : "1.0.0",
+          "bundle_id" : "com.example.app.clip",
+          "environment" : "sandbox",
+          "external_id" : null,
+          "locale" : "fr-FR",
+          "opted_in" : true,
+          "os_version" : "18.5",
+          "platform" : "ios",
+          "push_permission" : "undetermined",
+          "sdk_version" : "0.1.0",
+          "tags" : {
+
+          },
+          "timezone_id" : "Europe/Paris",
+          "token" : "abababababababababababababababababababababababababababababababab"
+        },
+        "method" : "POST",
+        "path" : "/v1/devices"
+      },
+      "given" : {
+        "app_build" : "1",
+        "app_version" : "1.0.0",
+        "bundle_id" : "com.example.app.clip",
+        "environment" : "sandbox",
+        "external_id" : null,
+        "locale" : "fr-FR",
+        "opted_in" : true,
+        "os_version" : "18.5",
+        "push_permission" : "undetermined",
+        "sdk_version" : "0.1.0",
+        "tags" : {
+
+        },
+        "timezone_id" : "Europe/Paris",
+        "token" : "abababababababababababababababababababababababababababababababab"
+      },
+      "name" : "a permission that has never been asked for",
+      "note" : "undetermined is not denied. An app that has not shown the prompt yet has a device that can still become reachable, and the distinction is what an onboarding funnel is measured on. Quiet delivery is its own state again: provisional reaches the handset and lands where almost nobody looks."
+    },
+    {
+      "expect" : {
+        "body" : {
+          "app_build" : "1",
+          "app_version" : "1.0.0",
+          "bundle_id" : "com.example.app",
           "environment" : "sandbox",
           "external_id" : null,
           "locale" : "fr",
           "opted_in" : true,
+          "os_version" : "18.5",
           "platform" : "ios",
+          "push_permission" : "provisional",
           "sdk_version" : "0.1.0",
           "tags" : {
             "flag" : false,
@@ -168,11 +290,15 @@
         "path" : "/v1/devices"
       },
       "given" : {
+        "app_build" : "1",
         "app_version" : "1.0.0",
+        "bundle_id" : "com.example.app",
         "environment" : "sandbox",
         "external_id" : null,
         "locale" : "fr",
         "opted_in" : true,
+        "os_version" : "18.5",
+        "push_permission" : "provisional",
         "sdk_version" : "0.1.0",
         "tags" : {
           "flag" : false,

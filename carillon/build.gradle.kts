@@ -8,7 +8,7 @@ plugins {
 // ticket; the two say the same thing and are bumped together.
 group = "dev.carillon"
 
-version = "0.1.0"
+version = "0.1.1"
 
 android {
   namespace = "dev.carillon.sdk"
