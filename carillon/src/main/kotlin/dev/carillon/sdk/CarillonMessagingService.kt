@@ -4,7 +4,7 @@ import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 
 /**
- * The service, for apps that do not already have one.
+ * Firebase messaging service for apps without an existing service.
  *
  * Declare it in the manifest and token rotation is handled:
  *
@@ -17,11 +17,8 @@ import com.google.firebase.messaging.RemoteMessage
  * </service>
  * ```
  *
- * An app that already has a `FirebaseMessagingService` keeps it and forwards two
- * calls instead — Firebase dispatches to one service per application, so two
- * declarations mean one of them silently never runs. The forwarding is the same
- * explicitness the iOS side asks of an app delegate: two visible lines rather
- * than something installed behind the app's back.
+ * If the app already has a FirebaseMessagingService, forward these callbacks
+ * from it instead. Declare only one messaging service.
  *
  * ```kotlin
  * override fun onNewToken(token: String) = Carillon.didRotate(token)

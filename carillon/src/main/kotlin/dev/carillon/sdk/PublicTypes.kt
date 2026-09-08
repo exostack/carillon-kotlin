@@ -1,18 +1,8 @@
 package dev.carillon.sdk
 
 /**
- * What the operating system will do with a notification for this app.
- *
- * The protocol's vocabulary, shared with every Carillon SDK, which is why it
- * carries four values where this platform produces two. `PROVISIONAL` is
- * Apple's quiet delivery and `UNDETERMINED` a prompt that has not been shown;
- * Android has neither, because below API 33 nothing is ever asked, and above it
- * a permission never granted and one refused come to the same thing as far as a
- * notification appearing is concerned.
- *
- * It is the *display* permission and nothing more. Whether the device can be
- * addressed at all is a question about its token, which it has from its first
- * launch whatever this says.
+ * OS notification display permission. Android reports ALLOWED or DENIED;
+ * PROVISIONAL and UNDETERMINED are included for the shared API vocabulary.
  */
 enum class PushPermission(internal val wire: String) {
   ALLOWED("allowed"),
@@ -22,10 +12,7 @@ enum class PushPermission(internal val wire: String) {
 }
 
 /**
- * A tag value, as the API defines it: a flat scalar and nothing else.
- *
- * A sealed class rather than `Any`, so a nested value is refused where it is
- * written instead of coming back as a 422 from a server the customer cannot see.
+ * Device tag value: string, integer, decimal, or boolean. Nested values are unsupported.
  */
 sealed class TagValue {
   data class Text(val value: String) : TagValue()
@@ -62,7 +49,9 @@ sealed class TagValue {
   }
 }
 
-/** Shorthand, so a call site reads as the map it is. */
+/**
+ * Creates a typed scalar tag value.
+ */
 fun tagOf(value: String): TagValue = TagValue.Text(value)
 
 fun tagOf(value: Long): TagValue = TagValue.Whole(value)
@@ -74,11 +63,7 @@ fun tagOf(value: Double): TagValue = TagValue.Fractional(value)
 fun tagOf(value: Boolean): TagValue = TagValue.Flag(value)
 
 /**
- * An open, handed to the app.
- *
- * The full payload is included because the customer's own keys travel in it and
- * the destination of a tap is theirs to decide. Carillon carries the data and
- * takes no position on what it means.
+ * Opened notification with its delivery id, FCM data, and tap time in epoch milliseconds.
  */
 class OpenedNotification(
   val deliveryId: String,
@@ -87,12 +72,7 @@ class OpenedNotification(
 )
 
 /**
- * One call, one value, made to be pasted into a support ticket.
- *
- * The key appears whole. A mobile key ships inside every copy of the app, so
- * anyone holding the APK already has it, and truncating it here would only cost
- * the support engineer the one identifier that tells them which app they are
- * looking at.
+ * Diagnostic snapshot. Includes the full mobile key and device token.
  */
 class DebugInfo(
   val sdkVersion: String,
@@ -105,16 +85,16 @@ class DebugInfo(
   val appBuild: String?,
   val osVersion: String?,
   /**
-   * `allowed` or `denied`, and null before the SDK has been given a context to
-   * ask with. A string rather than a type, for the reason [environment] is one:
-   * this is read in a ticket, not switched on.
-   */
+ * allowed or denied. Null before the SDK can read Android settings.
+ */
   val pushPermission: String?,
   val lastRegistrationAtMs: Long?,
   val lastRegistrationResult: String?,
   val queuedEvents: Int,
 ) {
-  /** The same field names the API uses, so a ticket and a log line agree. */
+  /**
+ * Serializes diagnostics using API field names.
+ */
   fun toJson(): String =
     Json.encode(
       mapOf(
@@ -135,9 +115,8 @@ class DebugInfo(
     )
 
   /**
-   * Rendered rather than dumped: this is read by a person, in a ticket, and
-   * `null` on every other line is noise they have to see past.
-   */
+ * Formats diagnostics as aligned text; missing values appear as a dash.
+ */
   override fun toString(): String {
     val lines =
       listOf(
