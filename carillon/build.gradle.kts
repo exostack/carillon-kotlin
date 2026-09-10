@@ -8,7 +8,7 @@ plugins {
 // ticket; the two say the same thing and are bumped together.
 group = "dev.carillon"
 
-version = "0.1.1"
+version = "0.2.0"
 
 android {
   namespace = "dev.carillon.sdk"
@@ -27,22 +27,15 @@ android {
 
   testOptions {
     unitTests {
-      // `android.util.Log` is a stub in the unit-test classpath and throws on
-      // every call. Returning a default makes the debug-logging path runnable
-      // off a device, which is the only way the flag that gates it is ever
-      // exercised. Nothing else in this module reads an Android stub: the
-      // seams that would are interfaces with in-memory fakes, precisely so
-      // that no test needs Robolectric — a third party, in an SDK with one
-      // dependency.
       isReturnDefaultValues = true
+      isIncludeAndroidResources = true
     }
   }
 }
 
 dependencies {
-  // The one permitted platform dependency: the vendor's own push channel,
-  // as UserNotifications is Apple's on iOS. Nothing else enters.
-  //
+  implementation("androidx.core:core:1.17.0")
+  implementation("androidx.work:work-runtime-ktx:2.11.2")
   // `api` for the same reason coroutines is: `Carillon.didReceive(RemoteMessage)`
   // puts a Firebase type in the public surface, and every app that keeps its
   // own FirebaseMessagingService and forwards the two calls compiles against
@@ -54,6 +47,8 @@ dependencies {
   // dependency the public surface requires is part of that surface.
   api(libs.coroutines.android)
 
+  testImplementation("org.robolectric:robolectric:4.16.1")
+  testImplementation("androidx.work:work-testing:2.11.2")
   testImplementation(libs.kotlin.test)
   testImplementation(libs.coroutines.test)
 }

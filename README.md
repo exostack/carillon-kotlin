@@ -150,3 +150,30 @@ Token rotation reuses that ID when the server validates the proof. Reinstallatio
 or merging with an existing token registration can change the ID; the callback
 fires on first registration and when the confirmed ID changes. The ID itself is
 not a credential. Never log or export the installation secret.
+
+## Foreground notifications
+
+`CarillonMessagingService` forwards incoming messages to `Carillon.didReceive(message)`.
+If you supply your own Firebase service, forward that call yourself. Configure Carillon in
+your `Application` so it is ready before callbacks arrive.
+
+```kotlin
+Carillon.onReceived = { notification ->
+  // Return SUPPRESS when your app displays its own interface.
+  NotificationPresentation.SHOW
+}
+```
+
+When Firebase forwards a foreground Carillon notification, the SDK posts its title and body,
+with `BigPictureStyle` when the image download succeeds. Image work runs through WorkManager
+with a 10-second download budget and a 10 MiB cap; failures keep the text. The SDK preserves
+the stamp and data in the tap intent. Continue forwarding launcher `onCreate` and `onNewIntent`
+to `Carillon.didOpen(intent)`.
+
+A requested existing channel is used; otherwise the SDK creates `carillon_default` named
+“Notifications”. Provide a `carillon_notification_icon` drawable for the small icon; the app
+icon is the fallback. Android 8+ channel settings control sound. On Android 13+, display requires
+notification permission. FCM displays background notification messages itself.
+
+`Carillon.clearNotifications()` clears the app's notifications and cancels pending image/display
+work. A download started before clearing cannot repost a notification afterwards.
