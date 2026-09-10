@@ -15,13 +15,14 @@ import java.util.TimeZone
  */
 object Carillon {
   /** The SDK version reported at registration. */
-  const val SDK_VERSION: String = "0.1.1"
+  const val SDK_VERSION: String = "0.2.0"
 
   /**
  * Default API endpoint. Override for staging or local development.
  */
   const val DEFAULT_ENDPOINT: String = "https://api.carillon.dev"
 
+  @Volatile private var applicationContext: Context? = null
   private val installLock = Any()
   private var installed: Engine? = null
 
@@ -64,6 +65,7 @@ object Carillon {
     debug: Boolean = false,
   ) {
     val application = context.applicationContext
+    applicationContext = application
     val preferences = application.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
     val debuggable = AndroidDebuggability(application).isDebuggable()
 
@@ -103,7 +105,20 @@ object Carillon {
  * Forward FirebaseMessagingService.onMessageReceived. Does not display notifications
  * or report received events.
  */
-  @JvmStatic fun didReceive(message: RemoteMessage) = engine.didReceive(message.data)
+  @JvmStatic fun didReceive(message: RemoteMessage) {
+    engine.didReceive(message.data)
+    applicationContext?.let { NotificationDisplay.enqueue(it, message) }
+  }
+
+  /** Invoked by lifecycle-managed work. Default presentation is SHOW. */
+  @Volatile var onReceived: ((ReceivedNotification) -> NotificationPresentation)? = null
+
+  /** Asynchronous decision bridge. The SDK defaults to SHOW after three seconds. */
+  @Volatile var onReceivedAsync: ((ReceivedNotification, (NotificationPresentation) -> Unit) -> Unit)? = null
+
+  @JvmStatic fun clearNotifications() {
+    applicationContext?.let { NotificationDisplay.clear(it) }
+  }
 
   /**
  * Forward the launcher intent from onCreate and onNewIntent.
@@ -147,6 +162,14 @@ object Carillon {
  * Handles notification opens. Opens received before a handler is attached are replayed when it is set.
  */
   @JvmStatic
+  /** The last confirmed registration ID, or null before registration. */
+  val deviceId: String? get() = engine.debugInfo().deviceId
+
+  /** Called after first registration and whenever the server assigns a new ID. */
+  var onDeviceIdChanged: ((String) -> Unit)?
+    get() = engine.onDeviceIdChanged
+    set(value) { engine.onDeviceIdChanged = value }
+
   var onOpened: ((OpenedNotification) -> Unit)?
     get() = engine.currentOnOpened()
     set(value) = engine.setOnOpened(value)
