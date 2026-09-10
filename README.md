@@ -136,3 +136,17 @@ Build the example on a device or emulator to verify Firebase and permission call
 `carillon/src/test/resources/registration.json` and `events.json` are copied
 verbatim from `carillon-swift/Tests/ConformanceFixtures/`. Update them only as
 part of a shared protocol change; do not edit individual fixtures in this repository.
+
+
+## Device identity
+
+```kotlin
+val id = Carillon.deviceId
+Carillon.onDeviceIdChanged = { id -> println(id) }
+```
+
+The SDK persists a random installation secret and the last confirmed device ID.
+Token rotation reuses that ID when the server validates the proof. Reinstallation
+or merging with an existing token registration can change the ID; the callback
+fires on first registration and when the confirmed ID changes. The ID itself is
+not a credential. Never log or export the installation secret.

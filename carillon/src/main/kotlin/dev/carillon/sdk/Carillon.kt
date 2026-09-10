@@ -147,6 +147,14 @@ object Carillon {
  * Handles notification opens. Opens received before a handler is attached are replayed when it is set.
  */
   @JvmStatic
+  /** The last confirmed registration ID, or null before registration. */
+  val deviceId: String? get() = engine.debugInfo().deviceId
+
+  /** Called after first registration and whenever the server assigns a new ID. */
+  var onDeviceIdChanged: ((String) -> Unit)?
+    get() = engine.onDeviceIdChanged
+    set(value) { engine.onDeviceIdChanged = value }
+
   var onOpened: ((OpenedNotification) -> Unit)?
     get() = engine.currentOnOpened()
     set(value) = engine.setOnOpened(value)

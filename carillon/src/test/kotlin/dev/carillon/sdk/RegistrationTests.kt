@@ -15,6 +15,33 @@ import kotlinx.coroutines.yield
  */
 class RegistrationTests {
   @Test
+  fun persistsProofAndReportsOnlyChangedDeviceIds() = runBlocking {
+    val store = MemoryStore()
+    val transport = FakeTransport(listOf(
+      HttpOutcome.Response(200, "{\"id\":\"first\"}"),
+      HttpOutcome.Response(200, "{\"id\":\"first\"}"),
+      HttpOutcome.Response(200, "{\"id\":\"winner\"}"),
+    ))
+    val engine = makeEngine(store = store, transport = transport)
+    val changes = mutableListOf<String>()
+    engine.onDeviceIdChanged = { changes.add(it) }
+    engine.setToken("first-token")
+    engine.settle()
+    val proof = store.installationSecret
+    assertEquals(43, proof?.length)
+    engine.setToken("second-token")
+    engine.settle()
+    assertEquals("first", transport.bodies.last()["device_id"])
+    assertEquals(proof, transport.bodies.last()["installation_secret"])
+    engine.setToken("third-token")
+    engine.settle()
+    assertEquals(listOf("first", "winner"), changes)
+    assertEquals("winner", engine.debugInfo().deviceId)
+    makeEngine(store = store)
+    assertEquals(proof, store.installationSecret)
+  }
+
+  @Test
   fun sendsTheWholeTableAsTheServerDefinesIt() = runBlocking {
     val transport = FakeTransport()
     val engine = makeEngine(transport = transport)

@@ -24,6 +24,7 @@ internal interface Store {
    * The id the server returned. Kept for `debugInfo()`, which is the first thing
    * support asks for and the only place it is ever needed.
    */
+  var installationSecret: String?
   var deviceId: String?
 
   /**
@@ -73,6 +74,10 @@ internal class SharedPreferencesStore(private val preferences: SharedPreferences
       write(STATE, value?.stored())
     }
 
+  override var installationSecret: String?
+    get() = preferences.getString("installation_secret", null)
+    set(value) { write("installation_secret", value) }
+
   override var deviceId: String?
     get() = preferences.getString(DEVICE_ID, null)
     set(value) {
@@ -120,6 +125,7 @@ internal class SharedPreferencesStore(private val preferences: SharedPreferences
 /** The store a test uses, and the one the SDK holds before `configure`. */
 internal class MemoryStore : Store {
   override var state: DeviceState? = null
+  override var installationSecret: String? = null
   override var deviceId: String? = null
   override var registeredFingerprint: String? = null
   override var events: List<QueuedEvent> = emptyList()

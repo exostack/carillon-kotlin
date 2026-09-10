@@ -66,7 +66,20 @@ internal class Engine(
   private val heldOpens = ArrayList<OpenedNotification>()
   private var onOpened: ((OpenedNotification) -> Unit)? = null
 
+  private fun ensureInstallationSecret(store: Store) {
+    if (store.installationSecret != null) return
+    val random = java.security.SecureRandom()
+    val alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
+    // Base64url of 256 random bits, without requiring Android API 26's Base64.
+    store.installationSecret = buildString {
+      repeat(42) { append(alphabet[random.nextInt(64)]) }
+      append(alphabet[random.nextInt(4) * 16])
+    }
+    store.registeredFingerprint = null
+  }
+
   init {
+    ensureInstallationSecret(store)
     // The stored state, or a fresh one. Restoring first matters: a token obtained
     // on a previous launch is what lets an app that has been offline register the
     // moment it starts.
@@ -98,6 +111,7 @@ internal class Engine(
   fun adopt(store: Store, permissions: Permissions) {
     synchronized(lock) {
       val owed = this.store.events
+      ensureInstallationSecret(store)
       this.store = store
       this.permissions = permissions
 
@@ -320,9 +334,14 @@ internal class Engine(
       val (snapshot, fingerprint) = pending
       val key = synchronized(lock) { this.key }
       val debug = isDebugEnabled
-      val body = Json.encode(snapshot.registrationBody())
+      val registration = snapshot.registrationBody().toMutableMap()
+      synchronized(lock) {
+        store.deviceId?.let { registration["device_id"] = it }
+        registration["installation_secret"] = store.installationSecret
+      }
+      val body = Json.encode(registration)
 
-      Log.write(debug) { "registering: $body" }
+      Log.write(debug) { "registering device" }
 
       when (val verdict = Verdict.of(transport.send(HttpRequest("POST", DEVICES, body, key)))) {
         is Verdict.Accepted -> {
@@ -386,19 +405,26 @@ internal class Engine(
     }
   }
 
+  var onDeviceIdChanged: ((String) -> Unit)? = null
+    get() = synchronized(lock) { field }
+    set(value) { synchronized(lock) { field = value } }
+
   private fun recordRegistration(fingerprint: String, response: String, debug: Boolean) {
     // The server names the device it created. Kept for `debugInfo()`, and read
     // leniently: a registration that succeeded must not be undone by a response
     // shape.
     val id = (Json.parse(response) as? Map<*, *>)?.get("id") as? String
 
-    synchronized(lock) {
+    val handler = synchronized(lock) {
+      val changed = id != null && id != store.deviceId
       store.registeredFingerprint = fingerprint
       refusedFingerprint = null
       if (id != null) store.deviceId = id
       lastRegistrationAtMs = clock.nowMs()
       lastRegistrationResult = "registered"
+      if (changed) onDeviceIdChanged else null
     }
+    if (id != null) handler?.invoke(id)
 
     Log.write(debug) { "registered as ${id ?: "an unnamed device"}" }
   }
