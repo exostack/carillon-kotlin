@@ -1,0 +1,12 @@
+{
+  "title": "Order ready",
+  "body": "Open your order",
+  "carillon": {
+    "delivery_id": "01937b1e-0000-7000-8000-0000000000ff",
+    "image": "https://example.com/order.png",
+    "thread_id": "orders"
+  },
+  "data": {
+    "order_id": "42"
+  }
+}

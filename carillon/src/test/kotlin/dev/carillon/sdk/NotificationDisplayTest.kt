@@ -91,6 +91,21 @@ class NotificationDisplayTest {
     assertNull(NotificationImage.download("http://example.com/image.png"))
   }
 
+  @Test fun richNotificationFixtureMatchesSwift() = runTest {
+    val fixture = Json.parse(javaClass.classLoader.getResourceAsStream("notification.json")!!.use { it.readBytes().toString(Charsets.UTF_8) }) as Map<*, *>
+    val data = (fixture["data"] as Map<*, *>) + ("carillon" to Json.encode(fixture["carillon"]))
+    Carillon.onReceived = { notification ->
+      assertEquals("01937b1e-0000-7000-8000-0000000000ff", notification.deliveryId)
+      assertEquals("orders", notification.threadId)
+      assertEquals("https://example.com/order.png", notification.image)
+      assertEquals("42", notification.data["order_id"])
+      NotificationPresentation.SUPPRESS
+    }
+    val content = mapOf("title" to fixture["title"], "body" to fixture["body"], "data" to data, "image" to "https://example.com/order.png")
+    TestListenableWorkerBuilder<NotificationDisplayWorker>(context)
+      .setInputData(Data.Builder().putString("content", Json.encode(content)).build()).build().doWork()
+  }
+
   private fun worker(): NotificationDisplayWorker = TestListenableWorkerBuilder<NotificationDisplayWorker>(context)
     .setInputData(Data.Builder().putString("content", Json.encode(raw)).build()).build()
 }
