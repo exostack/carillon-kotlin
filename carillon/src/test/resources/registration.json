@@ -13,7 +13,7 @@
           "os_version" : "18.5",
           "platform" : "ios",
           "push_permission" : "allowed",
-          "sdk_version" : "0.1.0",
+          "sdk_version" : "0.2.0",
           "tags" : {
             "beta" : true,
             "plan" : "pro",
@@ -36,7 +36,7 @@
         "opted_in" : true,
         "os_version" : "18.5",
         "push_permission" : "allowed",
-        "sdk_version" : "0.1.0",
+        "sdk_version" : "0.2.0",
         "tags" : {
           "beta" : true,
           "plan" : "pro",
@@ -61,7 +61,7 @@
           "os_version" : null,
           "platform" : "ios",
           "push_permission" : null,
-          "sdk_version" : "0.1.0",
+          "sdk_version" : "0.2.0",
           "tags" : {
 
           },
@@ -81,7 +81,7 @@
         "opted_in" : true,
         "os_version" : null,
         "push_permission" : null,
-        "sdk_version" : "0.1.0",
+        "sdk_version" : "0.2.0",
         "tags" : {
 
         },
@@ -104,7 +104,7 @@
           "os_version" : "18.5",
           "platform" : "ios",
           "push_permission" : "allowed",
-          "sdk_version" : "0.1.0",
+          "sdk_version" : "0.2.0",
           "tags" : {
             "plan" : "pro"
           },
@@ -124,7 +124,7 @@
         "opted_in" : true,
         "os_version" : "18.5",
         "push_permission" : "allowed",
-        "sdk_version" : "0.1.0",
+        "sdk_version" : "0.2.0",
         "tags" : {
           "plan" : "pro"
         },
@@ -147,7 +147,7 @@
           "os_version" : "18.5",
           "platform" : "ios",
           "push_permission" : "allowed",
-          "sdk_version" : "0.1.0",
+          "sdk_version" : "0.2.0",
           "tags" : {
 
           },
@@ -167,7 +167,7 @@
         "opted_in" : false,
         "os_version" : "18.5",
         "push_permission" : "allowed",
-        "sdk_version" : "0.1.0",
+        "sdk_version" : "0.2.0",
         "tags" : {
 
         },
@@ -190,7 +190,7 @@
           "os_version" : "26.0",
           "platform" : "ios",
           "push_permission" : "denied",
-          "sdk_version" : "0.1.0",
+          "sdk_version" : "0.2.0",
           "tags" : {
 
           },
@@ -210,7 +210,7 @@
         "opted_in" : true,
         "os_version" : "26.0",
         "push_permission" : "denied",
-        "sdk_version" : "0.1.0",
+        "sdk_version" : "0.2.0",
         "tags" : {
 
         },
@@ -233,7 +233,7 @@
           "os_version" : "18.5",
           "platform" : "ios",
           "push_permission" : "undetermined",
-          "sdk_version" : "0.1.0",
+          "sdk_version" : "0.2.0",
           "tags" : {
 
           },
@@ -253,7 +253,7 @@
         "opted_in" : true,
         "os_version" : "18.5",
         "push_permission" : "undetermined",
-        "sdk_version" : "0.1.0",
+        "sdk_version" : "0.2.0",
         "tags" : {
 
         },
@@ -276,7 +276,7 @@
           "os_version" : "18.5",
           "platform" : "ios",
           "push_permission" : "provisional",
-          "sdk_version" : "0.1.0",
+          "sdk_version" : "0.2.0",
           "tags" : {
             "flag" : false,
             "fractional" : 1.5,
@@ -299,7 +299,7 @@
         "opted_in" : true,
         "os_version" : "18.5",
         "push_permission" : "provisional",
-        "sdk_version" : "0.1.0",
+        "sdk_version" : "0.2.0",
         "tags" : {
           "flag" : false,
           "fractional" : 1.5,

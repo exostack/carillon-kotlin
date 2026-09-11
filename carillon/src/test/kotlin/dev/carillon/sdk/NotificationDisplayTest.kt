@@ -1,11 +1,13 @@
 package dev.carillon.sdk
 
-import android.app.Application
+import android.Manifest
+import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.content.pm.ResolveInfo
+import android.graphics.Bitmap
 import androidx.work.Data
 import androidx.work.testing.TestListenableWorkerBuilder
 import androidx.work.testing.WorkManagerTestInitHelper
@@ -19,7 +21,10 @@ import org.robolectric.RuntimeEnvironment
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 import kotlin.test.assertEquals
+import kotlin.test.assertNotEquals
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [28])
@@ -42,6 +47,8 @@ class NotificationDisplayTest {
   @After fun clean() {
     Carillon.onReceived = null
     Carillon.onReceivedAsync = null
+    Carillon.onOpened = null
+    NotificationImage.fetch = NotificationImage::download
   }
 
   @Test fun defaultChannelAndTapPreserveTheStamp() {
@@ -91,6 +98,77 @@ class NotificationDisplayTest {
     assertNull(NotificationImage.download("http://example.com/image.png"))
   }
 
+  @Test fun aFetchedImageIsShownAsABigPicture() = runTest {
+    val fetched = ArrayList<String>()
+    NotificationImage.fetch = { source -> fetched.add(source); Bitmap.createBitmap(4, 4, Bitmap.Config.ARGB_8888) }
+
+    worker(raw + ("image" to "https://example.com/order.png")).doWork()
+
+    val notification = manager.activeNotifications.single().notification
+    assertEquals(listOf("https://example.com/order.png"), fetched)
+    assertEquals(Notification.BigPictureStyle::class.java.name, notification.extras.getString(Notification.EXTRA_TEMPLATE))
+    assertNotNull(notification.extras.get(Notification.EXTRA_PICTURE))
+  }
+
+  @Test fun aFailedImageKeepsTheText() = runTest {
+    NotificationImage.fetch = { null }
+
+    worker(raw + ("image" to "https://example.com/order.png")).doWork()
+
+    val notification = manager.activeNotifications.single().notification
+    assertEquals(Notification.BigTextStyle::class.java.name, notification.extras.getString(Notification.EXTRA_TEMPLATE))
+  }
+
+  @Test fun tappingThePostedNotificationQueuesAnOpen() {
+    var opened: OpenedNotification? = null
+    Carillon.onOpened = { opened = it }
+    val before = Carillon.debugInfo().queuedEvents
+
+    NotificationDisplay.show(context, received, raw, null, "")
+    manager.activeNotifications.single().notification.contentIntent.send()
+
+    assertTrue(Carillon.didOpen(shadowOf(context).nextStartedActivity))
+    assertEquals("delivery", opened?.deliveryId)
+    assertEquals(mapOf("carillon" to "{\"delivery_id\":\"delivery\",\"thread_id\":\"chat\"}", "url" to "/chat"), opened?.data)
+    assertEquals(before + 1, Carillon.debugInfo().queuedEvents)
+  }
+
+  @Test @Config(sdk = [33]) fun nothingIsPostedWithoutThePermissionOnApi33() {
+    shadowOf(context).denyPermissions(Manifest.permission.POST_NOTIFICATIONS)
+
+    NotificationDisplay.show(context, received, raw, null, "")
+    assertEquals(0, manager.activeNotifications.size)
+
+    shadowOf(context).grantPermissions(Manifest.permission.POST_NOTIFICATIONS)
+
+    NotificationDisplay.show(context, received, raw, null, "")
+    assertEquals(1, manager.activeNotifications.size)
+  }
+
+  @Test fun theCustomSmallIconIsUsedWhenTheAppProvidesOne() {
+    val custom = context.resources.getIdentifier("carillon_notification_icon", "drawable", context.packageName)
+    assertNotEquals(0, custom)
+
+    NotificationDisplay.show(context, received, raw, null, "")
+
+    assertEquals(custom, manager.activeNotifications.single().notification.smallIcon.resId)
+  }
+
+  @Test fun theAppIconIsTheFallbackSmallIcon() {
+    val resources = context.resources
+    val withoutCustomIcon = object : android.content.ContextWrapper(context) {
+      @Suppress("DEPRECATION")
+      override fun getResources() = object : android.content.res.Resources(resources.assets, resources.displayMetrics, resources.configuration) {
+        override fun getIdentifier(name: String?, defType: String?, defPackage: String?): Int =
+          if (name == "carillon_notification_icon") 0 else resources.getIdentifier(name, defType, defPackage)
+      }
+    }
+
+    NotificationDisplay.show(withoutCustomIcon, received, raw, null, "")
+
+    assertEquals(android.R.drawable.ic_dialog_info, manager.activeNotifications.single().notification.smallIcon.resId)
+  }
+
   @Test fun richNotificationFixtureMatchesSwift() = runTest {
     val fixture = Json.parse(javaClass.classLoader.getResourceAsStream("notification.json")!!.use { it.readBytes().toString(Charsets.UTF_8) }) as Map<*, *>
     val data = (fixture["data"] as Map<*, *>) + ("carillon" to Json.encode(fixture["carillon"]))
@@ -106,6 +184,6 @@ class NotificationDisplayTest {
       .setInputData(Data.Builder().putString("content", Json.encode(content)).build()).build().doWork()
   }
 
-  private fun worker(): NotificationDisplayWorker = TestListenableWorkerBuilder<NotificationDisplayWorker>(context)
-    .setInputData(Data.Builder().putString("content", Json.encode(raw)).build()).build()
+  private fun worker(content: Map<String, Any?> = raw): NotificationDisplayWorker = TestListenableWorkerBuilder<NotificationDisplayWorker>(context)
+    .setInputData(Data.Builder().putString("content", Json.encode(content)).build()).build()
 }

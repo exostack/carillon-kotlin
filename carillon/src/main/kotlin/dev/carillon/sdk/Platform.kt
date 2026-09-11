@@ -1,10 +1,10 @@
 package dev.carillon.sdk
 
 import android.app.Activity
-import android.app.NotificationManager
 import android.content.Context
 import android.content.pm.ApplicationInfo
 import android.os.Build
+import androidx.core.app.NotificationManagerCompat
 import com.google.firebase.messaging.FirebaseMessaging
 import kotlin.coroutines.resume
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -60,8 +60,27 @@ internal class AndroidPermissionRequest(private val activity: Activity) : Permis
     // `areNotificationsEnabled()` is what answers it.
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
 
+    PermissionPrompt.markAsked(activity)
     PermissionRequestActivity.show(activity)
   }
+}
+
+/**
+ * Whether this SDK has ever raised the dialogue. Android 13 stops showing it
+ * after two refusals and says nothing, and this flag is half of what tells
+ * `canRequestPermission` that asking again would show nothing.
+ */
+internal object PermissionPrompt {
+  private const val ASKED = "permission_asked"
+
+  fun wasAsked(context: Context): Boolean = preferences(context).getBoolean(ASKED, false)
+
+  fun markAsked(context: Context) {
+    preferences(context).edit().putBoolean(ASKED, true).apply()
+  }
+
+  private fun preferences(context: Context) =
+    context.getSharedPreferences(Carillon.PREFERENCES, Context.MODE_PRIVATE)
 }
 
 internal class FirebaseTokenSource : TokenSource {
@@ -84,18 +103,13 @@ internal class FirebaseTokenSource : TokenSource {
 }
 
 /**
- * `NotificationManager.areNotificationsEnabled()`, which has existed since API
- * 24 — this module's minimum — so no compatibility layer is needed and none is
- * taken: `NotificationManagerCompat` would be an androidx dependency in an SDK
- * that has exactly one.
- *
- * A null service is a context that cannot answer. `false` rather than `true`,
- * because an SDK that cannot ask the system whether it may show a notification
- * has no business promising one will appear.
+ * `NotificationManagerCompat.areNotificationsEnabled()`: false for an app refused
+ * on API 33 and above, and equally false for one whose notifications were
+ * switched off in Settings — which no permission check can see.
  */
 internal class AndroidPermissions(private val context: Context) : Permissions {
   override fun notificationsEnabled(): Boolean =
-    context.getSystemService(NotificationManager::class.java)?.areNotificationsEnabled() ?: false
+    NotificationManagerCompat.from(context).areNotificationsEnabled()
 }
 
 internal class AndroidDebuggability(private val context: Context) : Debuggability {

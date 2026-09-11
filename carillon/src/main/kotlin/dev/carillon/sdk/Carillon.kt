@@ -1,10 +1,15 @@
 package dev.carillon.sdk
 
+import android.Manifest
 import android.app.Activity
+import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageInfo
+import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
+import android.provider.Settings
 import com.google.firebase.messaging.RemoteMessage
 import java.util.Locale
 import java.util.TimeZone
@@ -72,7 +77,7 @@ object Carillon {
     // The same engine throughout, given the real storage now that there is a
     // context for it. Anything it was already holding — a tap that arrived
     // before this call, a handler already attached — stays where it is.
-    engine.adopt(SharedPreferencesStore(preferences), AndroidPermissions(application))
+    engine.adopt(SharedPreferencesStore(preferences, KeystoreSecretCipher()), AndroidPermissions(application))
     engine.configure(
       key = key,
       endpoint = endpoint,
@@ -97,17 +102,84 @@ object Carillon {
     engine.requestPermission(AndroidPermissionRequest(activity))
 
   /**
+ * Reads whether the system would display a notification for this app and syncs
+ * the result to the server. Never shows a prompt. Call after [configure].
+ */
+  @JvmStatic fun getPermission(): PushPermission = engine.refreshPushPermission()
+
+  /**
+ * Whether [requestPermission] would show the system dialogue. True on API 33 and
+ * later when the permission is not granted and either this SDK never asked or the
+ * system reports that a rationale should be shown. False below API 33, where there
+ * is nothing to ask, and false once the system has stopped showing the dialogue —
+ * use [openNotificationSettings] then.
+ */
+  @JvmStatic
+  fun canRequestPermission(activity: Activity): Boolean {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return false
+    val permission = Manifest.permission.POST_NOTIFICATIONS
+    if (activity.checkSelfPermission(permission) == PackageManager.PERMISSION_GRANTED) return false
+
+    return !PermissionPrompt.wasAsked(activity) || activity.shouldShowRequestPermissionRationale(permission)
+  }
+
+  /**
+ * Opens the system notification settings for this app, falling back to the app
+ * details screen where the notification screen is unavailable.
+ */
+  @JvmStatic
+  fun openNotificationSettings(context: Context) {
+    val notificationSettings =
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+          .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+      } else {
+        null
+      }
+    val appDetails =
+      Intent(
+        Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+        Uri.fromParts("package", context.packageName, null),
+      )
+
+    for (intent in listOfNotNull(notificationSettings, appDetails)) {
+      try {
+        context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        return
+      } catch (error: ActivityNotFoundException) {
+        continue
+      }
+    }
+  }
+
+  /**
  * Forward FirebaseMessagingService.onNewToken to update the FCM token.
  */
   @JvmStatic fun didRotate(token: String) = engine.setToken(token)
 
   /**
- * Forward FirebaseMessagingService.onMessageReceived. Does not display notifications
- * or report received events.
+ * Forward FirebaseMessagingService.onMessageReceived. Runs the foreground display
+ * path: [onReceived] (or [onReceivedAsync]) decides, then the SDK posts the
+ * notification unless it was suppressed. Work is enqueued only for a message
+ * carrying a Carillon stamp or an FCM notification block; a data-only message
+ * from another sender is ignored. A message that is displayable but not
+ * Carillon's still reaches [onReceived], with a null `deliveryId`, so an app with
+ * two senders has one path. No received event is reported.
  */
-  @JvmStatic fun didReceive(message: RemoteMessage) {
-    engine.didReceive(message.data)
-    applicationContext?.let { NotificationDisplay.enqueue(it, message) }
+  @JvmStatic fun didReceive(message: RemoteMessage) =
+    receive(message.data, AlertContent.of(message))
+
+  /**
+ * Forward a payload received through another library or service, as its data
+ * map. Same behaviour as the RemoteMessage overload without a notification block:
+ * a message carrying a Carillon stamp reaches [onReceived] and nothing is posted,
+ * since there is no title or body to post.
+ */
+  @JvmStatic fun didReceive(data: Map<String, String>) = receive(data, null)
+
+  private fun receive(data: Map<String, String>, alert: AlertContent?) {
+    engine.didReceive(data)
+    applicationContext?.let { NotificationDisplay.enqueue(it, data, alert) }
   }
 
   /** Invoked by lifecycle-managed work. Default presentation is SHOW. */
@@ -130,8 +202,25 @@ object Carillon {
     val extras = intent?.extras ?: return false
     val data = extras.keySet().mapNotNull { name -> extras.getString(name)?.let { name to it } }
 
-    return engine.didOpen(data.toMap())
+    return didOpen(data.toMap())
   }
+
+  /**
+ * Forward an opened payload received through another library, as its data map.
+ * FCM's own transport keys (`google.*`, `gcm.*`, `from`, `collapse_key`,
+ * `message_type`) are dropped; everything else, including the `carillon` stamp,
+ * reaches [onOpened]. Returns false if no valid delivery id is present.
+ */
+  @JvmStatic
+  fun didOpen(data: Map<String, String>): Boolean =
+    engine.didOpen(data.filterKeys { !isTransportKey(it) })
+
+  private fun isTransportKey(name: String): Boolean =
+    name.startsWith("google.") ||
+      name.startsWith("gcm.") ||
+      name == "from" ||
+      name == "collapse_key" ||
+      name == "message_type"
 
   /**
  * Sets the external user id for this device. Multiple devices may share an id.
@@ -228,5 +317,5 @@ object Carillon {
       @Suppress("DEPRECATION") info.versionCode.toString()
     }
 
-  private const val PREFERENCES = "dev.carillon.sdk"
+  internal const val PREFERENCES = "dev.carillon.sdk"
 }

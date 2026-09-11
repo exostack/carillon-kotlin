@@ -14,6 +14,9 @@ import kotlin.coroutines.resume
 internal object NotificationImage {
   private const val MAX_BYTES = 10 * 1024 * 1024
 
+  /** The worker fetches through this so a test can hand it a bitmap without a server. */
+  @Volatile var fetch: suspend (String) -> Bitmap? = ::download
+
   suspend fun download(source: String): Bitmap? = withTimeoutOrNull(10_000) {
     suspendCancellableCoroutine { continuation ->
       val executor = Executors.newSingleThreadExecutor()

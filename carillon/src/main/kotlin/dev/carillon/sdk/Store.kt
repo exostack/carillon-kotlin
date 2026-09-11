@@ -11,8 +11,9 @@ import java.util.TimeZone
  *
  * `SharedPreferences`, in the app's own storage. Everything here describes an
  * install: a device id and an FCM token that Google has already reissued to
- * nobody. Nothing should outlive a reinstall, which is exactly what preferences
- * do and what a backup-surviving store would not.
+ * nobody. Auto Backup can carry the preferences onto another device, which is
+ * why the installation secret is sealed under a Keystore key before it is
+ * written: the key does not travel, so the restored copy proves nothing.
  *
  * An interface because every test in this module would otherwise need a real
  * Android context, and the alternative to that is a third party.
@@ -67,7 +68,19 @@ internal object Iso8601 {
   fun parse(text: String): Long? = runCatching { formatter.get()!!.parse(text)?.time }.getOrNull()
 }
 
-internal class SharedPreferencesStore(private val preferences: SharedPreferences) : Store {
+internal class SharedPreferencesStore(
+  private val preferences: SharedPreferences,
+  private val cipher: SecretCipher,
+) : Store {
+  private var unsealedSecret: String? = null
+
+  init {
+    preferences.getString(LEGACY_SECRET, null)?.let { plain ->
+      installationSecret = plain
+      write(LEGACY_SECRET, null)
+    }
+  }
+
   override var state: DeviceState?
     get() = preferences.getString(STATE, null)?.let(DeviceState::restore)
     set(value) {
@@ -75,8 +88,14 @@ internal class SharedPreferencesStore(private val preferences: SharedPreferences
     }
 
   override var installationSecret: String?
-    get() = preferences.getString("installation_secret", null)
-    set(value) { write("installation_secret", value) }
+    get() =
+      unsealedSecret
+        ?: preferences.getString(SEALED_SECRET, null)?.let(cipher::open)?.also { unsealedSecret = it }
+    set(value) {
+      val sealed = value?.let(cipher::seal)
+      unsealedSecret = if (sealed == null) value else null
+      write(SEALED_SECRET, sealed)
+    }
 
   override var deviceId: String?
     get() = preferences.getString(DEVICE_ID, null)
@@ -116,6 +135,8 @@ internal class SharedPreferencesStore(private val preferences: SharedPreferences
 
   private companion object {
     const val STATE = "state"
+    const val LEGACY_SECRET = "installation_secret"
+    const val SEALED_SECRET = "installation_secret_sealed"
     const val DEVICE_ID = "device_id"
     const val FINGERPRINT = "fingerprint"
     const val EVENTS = "events"

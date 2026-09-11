@@ -7,7 +7,7 @@ Carillon SDK for Android API 24 and later. Uses Firebase Messaging and Kotlin co
 Add the SDK to your app dependencies:
 
 ```kotlin
-implementation("dev.carillon:carillon:0.1.1")
+implementation("dev.carillon:carillon:0.2.0")
 ```
 
 Configure Firebase for your app package name, add `google-services.json`, and
@@ -53,8 +53,9 @@ override fun onNewToken(token: String) = Carillon.didRotate(token)
 override fun onMessageReceived(message: RemoteMessage) = Carillon.didReceive(message)
 ```
 
-`didReceive` does not display notifications or report received events.
-Forward launcher intents to report opens:
+`didReceive` runs the foreground display path described under
+[Foreground notifications](#foreground-notifications); it never reports a
+received event. Forward launcher intents to report opens:
 
 ```kotlin
 override fun onCreate(savedInstanceState: Bundle?) {
@@ -85,6 +86,26 @@ val permission = Carillon.requestPermission(activity)
 Returns `ALLOWED` or `DENIED` and syncs it to Carillon. Below API 33, reads
 notification settings without showing a prompt.
 
+To read the current state without prompting, or to decide what to offer:
+
+```kotlin
+val current = Carillon.getPermission()
+
+if (Carillon.canRequestPermission(activity)) {
+  Carillon.requestPermission(activity)
+} else {
+  Carillon.openNotificationSettings(context)
+}
+```
+
+`getPermission()` reads whether the system would display a notification for the
+app, syncs it to Carillon and never prompts. `canRequestPermission(activity)`
+is true on API 33 and later when the permission is not granted and either the
+SDK has never asked or the system reports that a rationale should be shown; it
+is false below API 33 and false once the system has stopped showing the
+dialogue. `openNotificationSettings(context)` opens the app's notification
+settings screen, falling back to the app details screen.
+
 ## Update the device
 
 ```kotlin
@@ -110,6 +131,16 @@ Carillon.onOpened = { notification ->
 ```
 
 Opens received before the handler is set are replayed when it attaches.
+
+`Carillon.didOpen(intent)` keeps the customer data and the `carillon` stamp and
+drops FCM's own transport extras (`google.*`, `gcm.*`, `from`, `collapse_key`,
+`message_type`). A payload received through another library can be forwarded as
+a map with the same result:
+
+```kotlin
+Carillon.didOpen(data)      // Map<String, String>; returns true when a delivery id was found
+Carillon.didReceive(data)   // Map<String, String>; runs the receive path without a notification block
+```
 
 ## Verify registration
 
@@ -148,8 +179,20 @@ Carillon.onDeviceIdChanged = { id -> println(id) }
 The SDK persists a random installation secret and the last confirmed device ID.
 Token rotation reuses that ID when the server validates the proof. Reinstallation
 or merging with an existing token registration can change the ID; the callback
-fires on first registration and when the confirmed ID changes. The ID itself is
-not a credential. Never log or export the installation secret.
+fires on first registration and when the confirmed ID changes, and a handler
+attached after registration completed is called once with the known ID. The ID
+itself is not a credential. Never log or export the installation secret.
+
+### Backups
+
+The installation secret is stored encrypted under an Android Keystore key that
+never leaves the device. The SDK's `SharedPreferences` are therefore safe to
+include in Auto Backup: no `android:allowBackup` or `dataExtractionRules`
+exclusion is needed. On a device restored from another device's backup the
+secret cannot be decrypted, so the SDK generates a new one, drops the restored
+device ID and token, and registers as a new device. An installation that
+upgrades from an earlier SDK version has its plaintext secret encrypted once on
+first launch.
 
 ## Foreground notifications
 
@@ -169,6 +212,12 @@ with `BigPictureStyle` when the image download succeeds. Image work runs through
 with a 10-second download budget and a 10 MiB cap; failures keep the text. The SDK preserves
 the stamp and data in the tap intent. Continue forwarding launcher `onCreate` and `onNewIntent`
 to `Carillon.didOpen(intent)`.
+
+Display work is enqueued only for a message carrying a Carillon stamp or an FCM `notification`
+block. A data-only message from another sender is ignored. A message that is displayable but
+not Carillon's still reaches `onReceived`, with `deliveryId == null`, so an app with two
+senders has one path; the SDK posts nothing for it. A Carillon message without a title or
+body reaches `onReceived` and posts nothing.
 
 A requested existing channel is used; otherwise the SDK creates `carillon_default` named
 “Notifications”. Provide a `carillon_notification_icon` drawable for the small icon; the app

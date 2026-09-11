@@ -66,6 +66,13 @@ internal class Engine(
   private val heldOpens = ArrayList<OpenedNotification>()
   private var onOpened: ((OpenedNotification) -> Unit)? = null
 
+  /**
+   * A store whose secret cannot be read holds an identity this install cannot
+   * prove — a backup restored onto another device, most often. The device id and
+   * the token that came with it are dropped along with the secret: the token is
+   * the other handset's, and re-registering it from here would take that row over.
+   * Firebase issues this install its own token on the next `configure`.
+   */
   private fun ensureInstallationSecret(store: Store) {
     if (store.installationSecret != null) return
     val random = java.security.SecureRandom()
@@ -76,6 +83,10 @@ internal class Engine(
       append(alphabet[random.nextInt(4) * 16])
     }
     store.registeredFingerprint = null
+    if (store.deviceId != null) {
+      store.deviceId = null
+      store.state = store.state?.copy(token = null)
+    }
   }
 
   init {
@@ -195,9 +206,7 @@ internal class Engine(
   suspend fun requestPermission(request: PermissionRequest): PushPermission {
     if (!permissions.notificationsEnabled()) request.show()
 
-    refreshPushPermission()
-
-    return currentPermission()
+    return refreshPushPermission()
   }
 
   // The state the app sets ---------------------------------------------------
@@ -255,10 +264,12 @@ internal class Engine(
    * next launch finding a body it has not sent before — the fingerprint is the
    * serialised body, so a flip is by construction a reason to register.
    */
-  fun refreshPushPermission() {
+  fun refreshPushPermission(): PushPermission {
     val permission = currentPermission()
 
     mutate { it.copy(pushPermission = permission.wire) }
+
+    return permission
   }
 
   private fun currentPermission(): PushPermission =
@@ -405,9 +416,20 @@ internal class Engine(
     }
   }
 
+  /**
+   * A handler attached after registration completed is told the id it missed,
+   * once, on attach — the same treatment held opens get. Without it a host that
+   * subscribes late waits for a change that may never come.
+   */
   var onDeviceIdChanged: ((String) -> Unit)? = null
     get() = synchronized(lock) { field }
-    set(value) { synchronized(lock) { field = value } }
+    set(value) {
+      val known = synchronized(lock) {
+        field = value
+        store.deviceId
+      }
+      if (value != null && known != null) value(known)
+    }
 
   private fun recordRegistration(fingerprint: String, response: String, debug: Boolean) {
     // The server names the device it created. Kept for `debugInfo()`, and read
@@ -481,9 +503,9 @@ internal class Engine(
    * Nothing is queued. `received` needs a Notification Service Extension on iOS
    * and is a later, additive decision for the protocol as a whole; reporting one
    * from Android alone would produce an event type the API refuses and a figure
-   * that means one thing on one platform and nothing on the other. Displaying the
-   * message is the app's business — channels, importance and appearance stay
-   * untouched.
+   * that means one thing on one platform and nothing on the other. Display is
+   * not decided here either: it belongs to `NotificationDisplay`, which needs a
+   * context this class deliberately never holds.
    */
   fun didReceive(data: Map<String, String>) {
     Log.write(isDebugEnabled) {

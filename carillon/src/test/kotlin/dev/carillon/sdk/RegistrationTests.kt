@@ -42,6 +42,37 @@ class RegistrationTests {
   }
 
   @Test
+  fun replaysTheKnownIdToAHandlerAttachedAfterRegistration() = runBlocking {
+    val transport = FakeTransport(listOf(
+      HttpOutcome.Response(200, "{\"id\":\"first\"}"),
+      HttpOutcome.Response(200, "{\"id\":\"first\"}"),
+    ))
+    val engine = makeEngine(transport = transport)
+    engine.setToken("first-token")
+    engine.settle()
+
+    val heard = mutableListOf<String>()
+    engine.onDeviceIdChanged = { heard.add(it) }
+    assertEquals(listOf("first"), heard)
+
+    engine.setToken("second-token")
+    engine.settle()
+    assertEquals(listOf("first"), heard)
+
+    engine.onDeviceIdChanged = null
+    engine.onDeviceIdChanged = { heard.add(it) }
+    assertEquals(listOf("first", "first"), heard)
+  }
+
+  @Test
+  fun saysNothingToAHandlerAttachedBeforeAnyRegistration() {
+    val heard = mutableListOf<String>()
+    makeEngine().onDeviceIdChanged = { heard.add(it) }
+
+    assertTrue(heard.isEmpty())
+  }
+
+  @Test
   fun sendsTheWholeTableAsTheServerDefinesIt() = runBlocking {
     val transport = FakeTransport()
     val engine = makeEngine(transport = transport)

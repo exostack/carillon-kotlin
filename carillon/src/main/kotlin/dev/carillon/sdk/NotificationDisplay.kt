@@ -35,20 +35,53 @@ public data class ReceivedNotification(
   val threadId: String?,
 )
 
+/** The FCM notification block, reduced to what display reads. */
+internal data class AlertContent(
+  val title: String?,
+  val body: String?,
+  val image: String?,
+  val channel: String?,
+  val sound: String?,
+  val badge: Int?,
+  val priority: Int,
+) {
+  companion object {
+    fun of(message: RemoteMessage): AlertContent? {
+      val alert = message.notification ?: return null
+
+      return AlertContent(
+        title = alert.title,
+        body = alert.body,
+        image = alert.imageUrl?.toString(),
+        channel = alert.channelId,
+        sound = alert.sound,
+        badge = alert.notificationCount,
+        priority = message.priority,
+      )
+    }
+  }
+}
+
 internal object NotificationDisplay {
   const val TAG = "carillon.notifications"
   private const val DEFAULT_CHANNEL = "carillon_default"
   private val lock = Any()
 
-  fun enqueue(context: Context, message: RemoteMessage) {
-    val alert = message.notification
-    val stamp = message.data["carillon"]?.let(Json::parse) as? Map<*, *>
+  /**
+   * Work is enqueued for a message carrying a Carillon stamp or a notification
+   * block, and for nothing else: a data-only message from another sender is that
+   * sender's business, and waking WorkManager for it would cost every app with
+   * two senders a worker per silent push.
+   */
+  fun enqueue(context: Context, data: Map<String, String>, alert: AlertContent?) {
+    val stamp = data["carillon"]?.let(Json::parse) as? Map<*, *>
+    if (stamp == null && alert == null) return
     val id = stamp?.get("delivery_id") as? String ?: UUID.randomUUID().toString()
     val content = Json.encode(mapOf(
-      "data" to message.data, "title" to alert?.title, "body" to alert?.body,
-      "image" to (alert?.imageUrl?.toString() ?: stamp?.get("image")),
-      "channel" to alert?.channelId, "sound" to alert?.sound,
-      "badge" to alert?.notificationCount, "priority" to message.priority,
+      "data" to data, "title" to alert?.title, "body" to alert?.body,
+      "image" to (alert?.image ?: stamp?.get("image")),
+      "channel" to alert?.channel, "sound" to alert?.sound,
+      "badge" to alert?.badge, "priority" to alert?.priority,
     ))
     val generation = context.getSharedPreferences(TAG, Context.MODE_PRIVATE).getString("generation", "") ?: ""
     val request = OneTimeWorkRequestBuilder<NotificationDisplayWorker>()
@@ -114,7 +147,8 @@ class NotificationDisplayWorker(context: Context, parameters: WorkerParameters) 
       } ?: NotificationPresentation.SHOW
     }
     if (decision == NotificationPresentation.SUPPRESS || received.deliveryId == null) return Result.success()
-    val image = received.image?.let { NotificationImage.download(it) }
+    if (received.title == null && received.body == null) return Result.success()
+    val image = received.image?.let { NotificationImage.fetch(it) }
     if (!isStopped) NotificationDisplay.show(applicationContext, received, raw, image, inputData.getString("generation") ?: "")
     return Result.success()
   }
