@@ -1,6 +1,7 @@
 plugins {
   alias(libs.plugins.android.library)
-  `maven-publish`
+  alias(libs.plugins.dokka)
+  alias(libs.plugins.maven.publish)
 }
 
 // The coordinate, and the one the SDK reports at registration. Kept beside
@@ -17,8 +18,6 @@ android {
   defaultConfig {
     minSdk = 24
   }
-
-  publishing { singleVariant("release") { withSourcesJar() } }
 
   compileOptions {
     sourceCompatibility = JavaVersion.VERSION_17
@@ -53,18 +52,42 @@ dependencies {
   testImplementation(libs.coroutines.test)
 }
 
-// `dev.carillon:carillon`, the coordinate Maven Central will carry. Until it
-// does, `./gradlew publishToMavenLocal` puts it where a wrapper can resolve it
-// — the same coordinate, so nothing about a consumer changes on the day the
-// artifact stops being local. The published POM carries the two `api`
-// dependencies above, which is what makes an app that only declares this one
-// still compile against `RemoteMessage` and against a coroutine scope.
-publishing {
-  publications {
-    register<MavenPublication>("release") {
-      artifactId = "carillon"
+// The published POM carries the two `api` dependencies above, which is what
+// makes an app that only declares this one still compile against
+// `RemoteMessage` and against a coroutine scope. Publications are signed when
+// a key is supplied, so `publishToMavenLocal` works without one; Maven Central
+// rejects an unsigned deployment at validation.
+mavenPublishing {
+  publishToMavenCentral()
+  if (providers.gradleProperty("signingInMemoryKey").isPresent) {
+    signAllPublications()
+  }
 
-      afterEvaluate { from(components["release"]) }
+  pom {
+    name = "Carillon"
+    description = "Carillon push notification SDK for Android."
+    inceptionYear = "2026"
+    url = "https://github.com/exostack/carillon-kotlin"
+    licenses {
+      license {
+        name = "MIT License"
+        url = "https://opensource.org/license/mit"
+        distribution = "repo"
+      }
+    }
+    developers {
+      developer {
+        id = "exostack"
+        name = "Exostack"
+        email = "hello@carillon.dev"
+        organization = "Exostack SARL"
+        organizationUrl = "https://carillon.dev"
+      }
+    }
+    scm {
+      url = "https://github.com/exostack/carillon-kotlin"
+      connection = "scm:git:https://github.com/exostack/carillon-kotlin.git"
+      developerConnection = "scm:git:ssh://git@github.com/exostack/carillon-kotlin.git"
     }
   }
 }

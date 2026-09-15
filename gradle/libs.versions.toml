@@ -16,6 +16,8 @@ google-services = "4.4.4"
 # exception so that it is a decision rather than a drift. Versioned on its own
 # line because kotlinx tracks its own releases, not the compiler's.
 coroutines = "1.10.2"
+maven-publish = "0.37.0"
+dokka = "2.2.0"
 
 [libraries]
 firebase-messaging = { module = "com.google.firebase:firebase-messaging", version.ref = "firebase-messaging" }
@@ -27,3 +29,5 @@ coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", ve
 android-library = { id = "com.android.library", version.ref = "agp" }
 android-application = { id = "com.android.application", version.ref = "agp" }
 google-services = { id = "com.google.gms.google-services", version.ref = "google-services" }
+maven-publish = { id = "com.vanniktech.maven.publish", version.ref = "maven-publish" }
+dokka = { id = "org.jetbrains.dokka", version.ref = "dokka" }
