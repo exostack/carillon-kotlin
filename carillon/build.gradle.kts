@@ -7,9 +7,9 @@ plugins {
 // The coordinate, and the one the SDK reports at registration. Kept beside
 // `Carillon.SDK_VERSION`, which is the value a customer reads in a support
 // ticket; the two say the same thing and are bumped together.
-group = "dev.carillon"
+group = "com.exostack"
 
-version = "0.2.0"
+version = "0.2.1"
 
 android {
   namespace = "dev.carillon.sdk"

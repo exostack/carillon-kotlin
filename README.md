@@ -7,7 +7,7 @@ Carillon SDK for Android API 24 and later. Uses Firebase Messaging and Kotlin co
 Add the SDK to your app dependencies:
 
 ```kotlin
-implementation("dev.carillon:carillon:0.2.0")
+implementation("com.exostack:carillon:0.2.1")
 ```
 
 Configure Firebase for your app package name, add `google-services.json`, and

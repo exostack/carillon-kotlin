@@ -20,7 +20,7 @@ import java.util.TimeZone
  */
 object Carillon {
   /** The SDK version reported at registration. */
-  const val SDK_VERSION: String = "0.2.0"
+  const val SDK_VERSION: String = "0.2.1"
 
   /**
  * Default API endpoint. Override for staging or local development.
