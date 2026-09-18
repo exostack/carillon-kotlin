@@ -69,7 +69,10 @@ class OpenedNotification(
   val deliveryId: String,
   val data: Map<String, String>,
   val openedAtMs: Long,
-)
+) {
+  /** Payload with marked JSON objects and arrays decoded; raw data remains available. */
+  val structuredData: Map<String, Any?> get() = decodeNotificationData(data)
+}
 
 /**
  * Diagnostic snapshot. Includes the full mobile key and device token.

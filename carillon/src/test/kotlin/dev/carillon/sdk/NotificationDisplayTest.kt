@@ -184,6 +184,20 @@ class NotificationDisplayTest {
       .setInputData(Data.Builder().putString("content", Json.encode(content)).build()).build().doWork()
   }
 
+  @Test fun receivedHandlerGetsDecodedDataWithoutLosingRawValues() = runTest {
+    val encoded = """{"items":[true,null,{"name":"é"}]}"""
+    var called = false
+    Carillon.onReceived = {
+      called = true
+      assertEquals(encoded, it.data["order"])
+      assertEquals(mapOf("items" to listOf(true, null, mapOf("name" to "é"))), it.structuredData["order"])
+      assertEquals(false, it.structuredData.containsKey("carillon"))
+      NotificationPresentation.SUPPRESS
+    }
+    worker(raw + ("data" to mapOf("carillon" to """{"delivery_id":"delivery","json_keys":["order"]}""", "order" to encoded))).doWork()
+    assertTrue(called)
+  }
+
   private fun worker(content: Map<String, Any?> = raw): NotificationDisplayWorker = TestListenableWorkerBuilder<NotificationDisplayWorker>(context)
     .setInputData(Data.Builder().putString("content", Json.encode(content)).build()).build()
 }

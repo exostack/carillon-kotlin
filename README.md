@@ -229,3 +229,13 @@ notification permission. FCM displays background notification messages itself.
 
 `Carillon.clearNotifications()` clears the app's notifications and cancels pending image/display
 work. A download started before clearing cannot repost a notification afterwards.
+
+
+### Structured notification data
+
+Custom notification data can contain nested JSON objects and arrays. Supported SDKs
+restore those values automatically. Strings containing JSON text remain strings.
+
+Use `notification.structuredData` in receive and open handlers for decoded values.
+`notification.data` remains the raw FCM string map for compatibility. Older payloads
+without encoding metadata remain unchanged.

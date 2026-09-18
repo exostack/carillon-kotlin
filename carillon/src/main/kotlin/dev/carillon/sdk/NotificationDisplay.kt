@@ -33,6 +33,8 @@ public data class ReceivedNotification(
   val data: Map<String, String>,
   val image: String?,
   val threadId: String?,
+  /** Custom data with marked JSON objects and arrays decoded. */
+  val structuredData: Map<String, Any?> = decodeNotificationData(data) - "carillon",
 )
 
 /** The FCM notification block, reduced to what display reads. */
@@ -136,7 +138,7 @@ class NotificationDisplayWorker(context: Context, parameters: WorkerParameters) 
     val raw = inputData.getString("content")?.let(Json::parse) as? Map<*, *> ?: return Result.failure()
     val data = (raw["data"] as? Map<*, *>)?.entries?.mapNotNull { (key, value) -> if (key is String && value is String) key to value else null }?.toMap() ?: emptyMap()
     val stamp = data["carillon"]?.let(Json::parse) as? Map<*, *>
-    val received = ReceivedNotification(stamp?.get("delivery_id") as? String, raw["title"] as? String, raw["body"] as? String, data - "carillon", raw["image"] as? String, stamp?.get("thread_id") as? String)
+    val received = ReceivedNotification(stamp?.get("delivery_id") as? String, raw["title"] as? String, raw["body"] as? String, data - "carillon", raw["image"] as? String, stamp?.get("thread_id") as? String, decodeNotificationData(data) - "carillon")
     val async = Carillon.onReceivedAsync
     val decision = if (async == null) Carillon.onReceived?.invoke(received) ?: NotificationPresentation.SHOW else {
       withTimeoutOrNull(3000) {
