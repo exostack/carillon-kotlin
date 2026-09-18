@@ -20,7 +20,7 @@ import java.util.TimeZone
  */
 object Carillon {
   /** The SDK version reported at registration. */
-  const val SDK_VERSION: String = "0.2.1"
+  const val SDK_VERSION: String = "0.3.0"
 
   /**
  * Default API endpoint. Override for staging or local development.
@@ -232,10 +232,12 @@ object Carillon {
  */
   @JvmStatic fun clearIdentity() = engine.identify(null)
 
-  /**
- * Replaces all device tags. Omitted tags are removed.
- */
-  @JvmStatic fun setTags(tags: Map<String, TagValue>) = engine.setTags(tags)
+  @JvmStatic fun setTag(name: String, value: TagValue) = setTags(mapOf(name to value))
+
+  @JvmStatic fun removeTag(name: String) = setTags(mapOf(name to null))
+
+  /** Merges supplied tags. Null removes a key; omitted keys are unchanged. */
+  @JvmStatic fun setTags(tags: Map<String, TagValue?>) = engine.setTags(tags)
 
   /**
  * Sets opted_in to true and syncs it to the server. Does not change OS permission.

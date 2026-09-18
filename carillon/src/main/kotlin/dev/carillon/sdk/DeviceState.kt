@@ -3,10 +3,7 @@ package dev.carillon.sdk
 /**
  * Everything the server is told about this device.
  *
- * One value, held whole, sent whole. The protocol makes the SDK the canonical
- * holder of this state and the registration call a replacement rather than a
- * patch — which is what makes re-registration free, and what makes an app that
- * has been offline for a week correct again with one call rather than several.
+ * Device attributes are snapshots; tags hold only unacknowledged per-key changes.
  */
 internal data class DeviceState(
   /**
@@ -27,7 +24,7 @@ internal data class DeviceState(
    */
   val environment: String = PRODUCTION,
   val externalId: String? = null,
-  val tags: Map<String, TagValue> = emptyMap(),
+  val tags: Map<String, TagValue?> = emptyMap(),
   val timezoneId: String? = null,
   val locale: String? = null,
   val appVersion: String? = null,
@@ -55,8 +52,8 @@ internal data class DeviceState(
    *
    * Every field is present on every call, including the null ones, and that is
    * deliberate on both sides: the server reads an absent field as "unchanged"
-   * and an explicit null as "erase". Since this SDK holds the whole truth about
-   * the device, sending the whole truth is the only description that stays
+   * and an explicit null as "erase". Except for pending tag changes, the SDK holds the state of
+   * the device, so sending its snapshot stays
    * correct — `clearIdentity()` has to reach the server as a null, and it can
    * only do that if nulls are sent.
    */
@@ -66,7 +63,7 @@ internal data class DeviceState(
       "platform" to platform,
       "environment" to environment,
       "external_id" to externalId,
-      "tags" to tags.mapValues { it.value.json },
+      "tags" to tags.mapValues { it.value?.json },
       "timezone_id" to timezoneId,
       "locale" to locale,
       "app_version" to appVersion,
@@ -102,7 +99,7 @@ internal data class DeviceState(
       val parsed = Json.parse(text) as? Map<*, *> ?: return null
       val tags =
         (parsed["tags"] as? Map<*, *> ?: emptyMap<Any?, Any?>()).mapNotNull { (name, value) ->
-          val tag = TagValue.of(value) ?: return@mapNotNull null
+          val tag = if (value == null) null else TagValue.of(value) ?: return@mapNotNull null
 
           name.toString() to tag
         }

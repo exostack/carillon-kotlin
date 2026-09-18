@@ -15,6 +15,63 @@ import kotlinx.coroutines.yield
  */
 class RegistrationTests {
   @Test
+  fun retriesTagRemovalUntilAcknowledged() = runBlocking {
+    val transport = FakeTransport(listOf(HttpOutcome.Failure("offline")))
+    val engine = makeEngine(transport = transport)
+    engine.setTags(mapOf("gone" to null))
+    engine.setToken(FCM_TOKEN)
+    engine.settle()
+    assertEquals(2, transport.requests.size)
+    transport.bodies.forEach { body ->
+      val tags = body["tags"] as Map<*, *>
+      assertTrue(tags.containsKey("gone"))
+      assertEquals(null, tags["gone"])
+    }
+    assertTrue(engine.currentState.tags.isEmpty())
+  }
+
+  @Test
+  fun mergesPendingTagsAndDoesNotReplayAcknowledgedTags() = runBlocking {
+    val store = MemoryStore()
+    val transport = FakeTransport()
+    val engine = makeEngine(transport = transport, store = store)
+    engine.setTags(mapOf("plan" to tagOf("pro"), "keep" to tagOf(true)))
+    engine.setTags(mapOf("plan" to null, "count" to tagOf(2)))
+    val restored = makeEngine(transport = transport, store = store)
+    restored.setToken(FCM_TOKEN)
+    restored.settle()
+    val tags = transport.bodies[0]["tags"] as Map<*, *>
+    assertTrue(tags.containsKey("plan"))
+    assertEquals(null, tags["plan"])
+    assertEquals(true, tags["keep"])
+    assertTrue(restored.currentState.tags.isEmpty())
+    restored.identify("server-tags-must-survive")
+    restored.settle()
+    assertTrue((transport.bodies.last()["tags"] as Map<*, *>).isEmpty())
+  }
+
+  @Test
+  fun preservesTagChangesMadeDuringUpload() = runBlocking {
+    val gate = CompletableDeferred<Unit>()
+    val transport = FakeTransport()
+    transport.beforeSend = { index -> if (index == 0) gate.await() }
+    val engine = makeEngine(transport = transport)
+    engine.setTags(mapOf("plan" to tagOf("old"), "remove" to tagOf(true)))
+    engine.setToken(FCM_TOKEN)
+    while (transport.requests.isEmpty()) yield()
+    engine.setTags(mapOf("plan" to tagOf("new"), "remove" to null, "extra" to tagOf(true)))
+    gate.complete(Unit)
+    engine.settle()
+    assertEquals(2, transport.requests.size)
+    val tags = transport.bodies[1]["tags"] as Map<*, *>
+    assertEquals("new", tags["plan"])
+    assertTrue(tags.containsKey("remove"))
+    assertEquals(null, tags["remove"])
+    assertEquals(true, tags["extra"])
+    assertTrue(engine.currentState.tags.isEmpty())
+  }
+
+  @Test
   fun persistsProofAndReportsOnlyChangedDeviceIds() = runBlocking {
     val store = MemoryStore()
     val transport = FakeTransport(listOf(
@@ -284,7 +341,7 @@ class RegistrationTests {
 
     assertEquals("user-42", restored.currentState.externalId)
     assertEquals(FCM_TOKEN, restored.currentState.token)
-    assertEquals(TagValue.Text("pro"), restored.currentState.tags["plan"])
+    assertTrue(restored.currentState.tags.isEmpty())
   }
 
   @Test

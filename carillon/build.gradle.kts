@@ -9,7 +9,7 @@ plugins {
 // ticket; the two say the same thing and are bumped together.
 group = "com.exostack"
 
-version = "0.2.1"
+version = "0.3.0"
 
 android {
   namespace = "dev.carillon.sdk"

@@ -157,9 +157,6 @@ class MainActivity : Activity() {
     column.addView(tagNameField)
     tagValueField = field("value", "")
     column.addView(tagValueField)
-    // One pair at a time, sent as the whole map. The SDK replaces rather than
-    // merges, which the bench shows honestly rather than papering over by
-    // accumulating pairs of its own.
     column.addView(
       button("setTags()") {
         val name = tagNameField.text.toString()
@@ -172,9 +169,9 @@ class MainActivity : Activity() {
       }
     )
     column.addView(
-      button("setTags(empty)") {
-        Carillon.setTags(emptyMap())
-        append("setTags(empty)")
+      button("removeTag()") {
+        Carillon.removeTag(tagNameField.text.toString())
+        append("removeTag(${tagNameField.text})")
         refreshInfo()
       }
     )

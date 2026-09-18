@@ -7,7 +7,7 @@ Carillon SDK for Android API 24 and later. Uses Firebase Messaging and Kotlin co
 Add the SDK to your app dependencies:
 
 ```kotlin
-implementation("com.exostack:carillon:0.2.1")
+implementation("com.exostack:carillon:0.3.0")
 ```
 
 Configure Firebase for your app package name, add `google-services.json`, and
@@ -113,12 +113,15 @@ import dev.carillon.sdk.tagOf
 
 Carillon.identify("user-42")
 Carillon.setTags(mapOf("plan" to tagOf("pro"), "seats" to tagOf(12)))
+Carillon.setTag("language", tagOf("fr"))
+Carillon.setTags(mapOf("seats" to null))
+Carillon.removeTag("language")
 Carillon.clearIdentity()
 Carillon.optOut()
 Carillon.optIn()
 ```
 
-Tags replace the entire map. Clearing identity keeps the device registered.
+Tags merge with existing keys, including tags written by your backend. Use `setTag` to update one key and `removeTag` to delete one. In `setTags`, a null value (`nil` in Swift) removes that key; omitted keys are preserved. Clearing identity keeps the device registered.
 Opt-in changes sync to the server and do not change OS permission.
 
 ## Handle opens

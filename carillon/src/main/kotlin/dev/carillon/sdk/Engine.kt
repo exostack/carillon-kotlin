@@ -215,12 +215,7 @@ internal class Engine(
 
   fun identify(externalId: String?) = mutate { it.copy(externalId = externalId) }
 
-  /**
-   * Replaced whole, never merged. The SDK holds the canonical map and the server
-   * replaces what it holds — a merge here would make removing a tag impossible
-   * without inventing a word for "remove".
-   */
-  fun setTags(tags: Map<String, TagValue>) = mutate { it.copy(tags = tags) }
+  fun setTags(tags: Map<String, TagValue?>) = mutate { it.copy(tags = it.tags + tags) }
 
   fun setOptedIn(optedIn: Boolean) = mutate { it.copy(optedIn = optedIn) }
 
@@ -357,7 +352,7 @@ internal class Engine(
       when (val verdict = Verdict.of(transport.send(HttpRequest("POST", DEVICES, body, key)))) {
         is Verdict.Accepted -> {
           failures = 0
-          recordRegistration(fingerprint, verdict.body, debug)
+          recordRegistration(snapshot, verdict.body, debug)
         }
         is Verdict.Retry -> {
           failures += 1
@@ -431,7 +426,7 @@ internal class Engine(
       if (value != null && known != null) value(known)
     }
 
-  private fun recordRegistration(fingerprint: String, response: String, debug: Boolean) {
+  private fun recordRegistration(snapshot: DeviceState, response: String, debug: Boolean) {
     // The server names the device it created. Kept for `debugInfo()`, and read
     // leniently: a registration that succeeded must not be undone by a response
     // shape.
@@ -439,7 +434,11 @@ internal class Engine(
 
     val handler = synchronized(lock) {
       val changed = id != null && id != store.deviceId
-      store.registeredFingerprint = fingerprint
+      state = state.copy(tags = state.tags.filter { (name, value) ->
+        !snapshot.tags.containsKey(name) || snapshot.tags[name] != value
+      })
+      store.state = state
+      store.registeredFingerprint = snapshot.copy(tags = emptyMap()).fingerprint()
       refusedFingerprint = null
       if (id != null) store.deviceId = id
       lastRegistrationAtMs = clock.nowMs()
