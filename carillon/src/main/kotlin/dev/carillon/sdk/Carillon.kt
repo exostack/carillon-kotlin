@@ -20,7 +20,7 @@ import java.util.TimeZone
  */
 object Carillon {
   /** The SDK version reported at registration. */
-  const val SDK_VERSION: String = "0.3.0"
+  const val SDK_VERSION: String = "0.4.0"
 
   /**
  * Default API endpoint. Override for staging or local development.
@@ -232,12 +232,32 @@ object Carillon {
  */
   @JvmStatic fun clearIdentity() = engine.identify(null)
 
-  @JvmStatic fun setTag(name: String, value: TagValue) = setTags(mapOf(name to value))
+  @JvmStatic fun setTag(name: String, value: String) = setTags(mapOf(name to value))
+
+  @JvmStatic fun setTagNumber(name: String, value: Number) {
+    require(value.toDouble().isFinite()) { "Tag numbers must be finite" }
+    engine.setTypedTags("number_tags", mapOf(name to TagValue.Fractional(value.toDouble())))
+  }
+
+  @JvmStatic fun setTagBoolean(name: String, value: Boolean) =
+    engine.setTypedTags("boolean_tags", mapOf(name to TagValue.of(value)))
+
+  @JvmStatic fun setTagDate(name: String, value: java.util.Date) {
+    require(value.time >= -62135596800000L && value.time < 253402300800000L) { "Tag dates must be valid ISO dates" }
+    val formatter = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", java.util.Locale.ROOT)
+    formatter.calendar = java.util.GregorianCalendar(java.util.TimeZone.getTimeZone("UTC"), java.util.Locale.ROOT).apply { gregorianChange = java.util.Date(Long.MIN_VALUE) }
+    formatter.timeZone = java.util.TimeZone.getTimeZone("UTC")
+    engine.setTypedTags("date_tags", mapOf(name to TagValue.of(formatter.format(value))))
+  }
+
+  @JvmStatic fun removeTagNumber(name: String) = engine.setTypedTags("number_tags", mapOf(name to null))
+  @JvmStatic fun removeTagBoolean(name: String) = engine.setTypedTags("boolean_tags", mapOf(name to null))
+  @JvmStatic fun removeTagDate(name: String) = engine.setTypedTags("date_tags", mapOf(name to null))
 
   @JvmStatic fun removeTag(name: String) = setTags(mapOf(name to null))
 
   /** Merges supplied tags. Null removes a key; omitted keys are unchanged. */
-  @JvmStatic fun setTags(tags: Map<String, TagValue?>) = engine.setTags(tags)
+  @JvmStatic fun setTags(tags: Map<String, String?>) = engine.setTags(tags.mapValues { it.value?.let(TagValue::of) })
 
   /**
  * Sets opted_in to true and syncs it to the server. Does not change OS permission.
