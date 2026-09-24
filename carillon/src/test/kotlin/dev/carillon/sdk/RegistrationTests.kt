@@ -15,6 +15,31 @@ import kotlinx.coroutines.yield
  */
 class RegistrationTests {
   @Test
+  fun typedTagsPersistAndPreserveChangesDuringUpload() = runBlocking {
+    val store = MemoryStore()
+    val gate = CompletableDeferred<Unit>()
+    val transport = FakeTransport(listOf(HttpOutcome.Failure("offline")))
+    transport.beforeSend = { index -> if (index == 0) gate.await() }
+    val first = makeEngine(transport = transport, store = store)
+    first.setTypedTags("number_tags", mapOf("same" to tagOf(12), "gone" to null))
+    first.setTypedTags("boolean_tags", mapOf("same" to tagOf(false)))
+    first.setTypedTags("date_tags", mapOf("same" to tagOf("2026-10-01T12:00:00.000Z")))
+    assertEquals(first.currentState.registrationBody(), DeviceState.restore(first.currentState.stored())!!.registrationBody())
+    val engine = makeEngine(transport = transport, store = store)
+    engine.setToken(FCM_TOKEN)
+    while (transport.requests.isEmpty()) yield()
+    engine.setTypedTags("number_tags", mapOf("same" to tagOf(13)))
+    gate.complete(Unit)
+    engine.settle()
+    assertEquals(13.0, ((transport.bodies.last()["number_tags"] as Map<*, *>)["same"] as Number).toDouble())
+    assertEquals(false, (transport.bodies.first()["boolean_tags"] as Map<*, *>)["same"])
+    assertTrue(engine.currentState.typedTags.values.all { it.isEmpty() })
+    engine.identify("another")
+    engine.settle()
+    assertNull(transport.bodies.last()["number_tags"])
+  }
+
+  @Test
   fun retriesTagRemovalUntilAcknowledged() = runBlocking {
     val transport = FakeTransport(listOf(HttpOutcome.Failure("offline")))
     val engine = makeEngine(transport = transport)

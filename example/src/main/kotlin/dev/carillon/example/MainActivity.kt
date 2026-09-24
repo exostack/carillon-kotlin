@@ -17,8 +17,6 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import dev.carillon.sdk.Carillon
-import dev.carillon.sdk.TagValue
-import dev.carillon.sdk.tagOf
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -161,7 +159,7 @@ class MainActivity : Activity() {
       button("setTags()") {
         val name = tagNameField.text.toString()
         if (name.isNotEmpty()) {
-          val tags: Map<String, TagValue> = mapOf(name to tagOf(tagValueField.text.toString()))
+          val tags = mapOf(name to tagValueField.text.toString())
           Carillon.setTags(tags)
           append("setTags([$name: ${tagValueField.text}])")
           refreshInfo()

@@ -25,6 +25,7 @@ internal data class DeviceState(
   val environment: String = PRODUCTION,
   val externalId: String? = null,
   val tags: Map<String, TagValue?> = emptyMap(),
+  val typedTags: Map<String, Map<String, TagValue?>> = emptyMap(),
   val timezoneId: String? = null,
   val locale: String? = null,
   val appVersion: String? = null,
@@ -73,7 +74,7 @@ internal data class DeviceState(
       "push_permission" to pushPermission,
       "sdk_version" to sdkVersion,
       "opted_in" to optedIn,
-    )
+    ) + typedTags.filterValues { it.isNotEmpty() }.mapValues { (_, patch) -> patch.mapValues { it.value?.json } }
 
   /**
    * What "the server already knows this" means.
@@ -110,6 +111,12 @@ internal data class DeviceState(
         environment = parsed["environment"] as? String ?: PRODUCTION,
         externalId = parsed["external_id"] as? String,
         tags = tags.toMap(),
+        typedTags = listOf("date_tags", "number_tags", "boolean_tags").associateWith { kind ->
+          (parsed[kind] as? Map<*, *> ?: emptyMap<Any?, Any?>()).mapNotNull { (name, value) ->
+            val tag = if (value == null) null else TagValue.of(value) ?: return@mapNotNull null
+            name.toString() to tag
+          }.toMap()
+        },
         timezoneId = parsed["timezone_id"] as? String,
         locale = parsed["locale"] as? String,
         appVersion = parsed["app_version"] as? String,

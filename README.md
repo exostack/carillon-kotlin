@@ -7,7 +7,7 @@ Carillon SDK for Android API 24 and later. Uses Firebase Messaging and Kotlin co
 Add the SDK to your app dependencies:
 
 ```kotlin
-implementation("com.exostack:carillon:0.3.0")
+implementation("com.exostack:carillon:0.4.0")
 ```
 
 Configure Firebase for your app package name, add `google-services.json`, and
@@ -109,12 +109,12 @@ settings screen, falling back to the app details screen.
 ## Update the device
 
 ```kotlin
-import dev.carillon.sdk.tagOf
 
 Carillon.identify("user-42")
-Carillon.setTags(mapOf("plan" to tagOf("pro"), "seats" to tagOf(12)))
-Carillon.setTag("language", tagOf("fr"))
-Carillon.setTags(mapOf("seats" to null))
+Carillon.setTag("plan", "pro")
+Carillon.setTagNumber("seats", 12)
+Carillon.setTag("language", "fr")
+Carillon.removeTagNumber("seats")
 Carillon.removeTag("language")
 Carillon.clearIdentity()
 Carillon.optOut()
@@ -239,3 +239,18 @@ restore those values automatically. Strings containing JSON text remain strings.
 Use `notification.structuredData` in receive and open handlers for decoded values.
 `notification.data` remains the raw FCM string map for compatibility. Older payloads
 without encoding metadata remain unchanged.
+
+
+## Typed tags
+
+Use `setTag` for strings, `setTagNumber` for finite numbers, `setTagBoolean` for
+booleans, and `setTagDate` for native dates (Swift `Date`, Kotlin `java.util.Date`,
+JavaScript `Date`). Dates are serialized as UTC ISO timestamps. `setTags` accepts
+string values or null removals only.
+
+Each type has its own namespace: the same key may exist independently in several
+types. Remove values with `removeTag`, `removeTagNumber`, `removeTagBoolean`, or
+`removeTagDate`. Pending writes and removals survive restarts and retries.
+
+See the [tags guide](https://carillon.dev/docs/concepts/tags) for API formats,
+shared user profiles, audience filters, limits and examples.

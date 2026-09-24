@@ -215,6 +215,10 @@ internal class Engine(
 
   fun identify(externalId: String?) = mutate { it.copy(externalId = externalId) }
 
+  fun setTypedTags(kind: String, patch: Map<String, TagValue?>) = mutate {
+    it.copy(typedTags = it.typedTags + (kind to ((it.typedTags[kind] ?: emptyMap()) + patch)))
+  }
+
   fun setTags(tags: Map<String, TagValue?>) = mutate { it.copy(tags = it.tags + tags) }
 
   fun setOptedIn(optedIn: Boolean) = mutate { it.copy(optedIn = optedIn) }
@@ -437,8 +441,12 @@ internal class Engine(
       state = state.copy(tags = state.tags.filter { (name, value) ->
         !snapshot.tags.containsKey(name) || snapshot.tags[name] != value
       })
+      state = state.copy(typedTags = state.typedTags.mapValues { (kind, patch) ->
+        val sent = snapshot.typedTags[kind] ?: emptyMap()
+        patch.filter { (name, value) -> !sent.containsKey(name) || sent[name] != value }
+      })
       store.state = state
-      store.registeredFingerprint = snapshot.copy(tags = emptyMap()).fingerprint()
+      store.registeredFingerprint = snapshot.copy(tags = emptyMap(), typedTags = emptyMap()).fingerprint()
       refusedFingerprint = null
       if (id != null) store.deviceId = id
       lastRegistrationAtMs = clock.nowMs()
