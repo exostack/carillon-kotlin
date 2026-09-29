@@ -15,6 +15,41 @@ import kotlinx.coroutines.yield
  */
 class RegistrationTests {
   @Test
+  fun keyAndEndpointChangesRegisterAgain() = runBlocking {
+    val store = MemoryStore()
+    val transport = FakeTransport()
+    val engine = makeEngine(transport = transport, store = store)
+    engine.setToken(FCM_TOKEN)
+    engine.settle()
+    engine.configure("rotated", "https://api-staging.carillon.dev", false, null)
+    engine.settle()
+    assertEquals(2, transport.requests.size)
+    assertEquals("rotated", transport.requests.last().key)
+    engine.configure("rotated", "https://api-staging.carillon.dev", false, null)
+    engine.settle()
+    assertEquals(2, transport.requests.size)
+    engine.configure("rotated", "https://another.example", false, null)
+    engine.settle()
+    assertEquals(3, transport.requests.size)
+    assertTrue(!store.registeredFingerprint!!.contains("rotated"))
+  }
+
+  @Test
+  fun configurationChangeDuringUploadIsNotAcknowledgedByOldResponse() = runBlocking {
+    val gate = CompletableDeferred<Unit>()
+    val transport = FakeTransport()
+    transport.beforeSend = { index -> if (index == 0) gate.await() }
+    val engine = makeEngine(transport = transport)
+    engine.setToken(FCM_TOKEN)
+    while (transport.requests.isEmpty()) yield()
+    engine.configure("rotated", "https://api-staging.carillon.dev", false, null)
+    gate.complete(Unit)
+    engine.settle()
+    assertEquals(2, transport.requests.size)
+    assertEquals("rotated", transport.requests.last().key)
+  }
+
+  @Test
   fun typedTagsPersistAndPreserveChangesDuringUpload() = runBlocking {
     val store = MemoryStore()
     val gate = CompletableDeferred<Unit>()

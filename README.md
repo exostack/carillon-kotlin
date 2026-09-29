@@ -7,7 +7,7 @@ Carillon SDK for Android API 24 and later. Uses Firebase Messaging and Kotlin co
 Add the SDK to your app dependencies:
 
 ```kotlin
-implementation("com.exostack:carillon:0.4.0")
+implementation("com.exostack:carillon:0.4.1")
 ```
 
 Configure Firebase for your app package name, add `google-services.json`, and
@@ -254,3 +254,13 @@ types. Remove values with `removeTag`, `removeTagNumber`, `removeTagBoolean`, or
 
 See the [tags guide](https://carillon.dev/docs/concepts/tags) for API formats,
 shared user profiles, audience filters, limits and examples.
+
+## Changing the mobile key
+
+Version 0.4.1 re-registers an unchanged device when `configure` receives a new
+mobile key or API endpoint, including when an older request is still in flight.
+Repeating the same configuration after registration remains a no-op. The stored
+registration fingerprint contains a hash of the configuration, not the raw key.
+An existing device ID cannot claim a row in a different Carillon app: the server
+resolves identity within the app authorized by the key. Switching apps does not
+delete the previous app's registration or clear your application's user identity.

@@ -1,5 +1,6 @@
 package dev.carillon.sdk
 
+import java.security.MessageDigest
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -296,17 +297,31 @@ internal class Engine(
    * before `configure` register the moment a key does: nothing was consumed while
    * sending was impossible.
    */
-  private fun pendingRegistration(): Pair<DeviceState, String>? =
+  private data class RegistrationAttempt(
+    val snapshot: DeviceState,
+    val fingerprint: String,
+    val key: String,
+    val endpoint: String,
+    val transport: Transport,
+  )
+
+  private fun registrationFingerprint(snapshot: DeviceState, key: String, endpoint: String): String {
+    val scope = MessageDigest.getInstance("SHA-256").digest("$key\n$endpoint".toByteArray(Charsets.UTF_8))
+      .joinToString("") { "%02x".format(it) }
+    return "$scope:${snapshot.fingerprint()}"
+  }
+
+  private fun pendingRegistration(): RegistrationAttempt? =
     synchronized(lock) {
       if (state.token == null || key.isEmpty()) return@synchronized null
 
-      val fingerprint = state.fingerprint()
+      val fingerprint = registrationFingerprint(state, key, endpoint)
 
       if (fingerprint == store.registeredFingerprint || fingerprint == refusedFingerprint) {
         return@synchronized null
       }
 
-      state to fingerprint
+      RegistrationAttempt(state, fingerprint, key, endpoint, transport)
     }
 
   /**
@@ -341,8 +356,7 @@ internal class Engine(
         return
       }
 
-      val (snapshot, fingerprint) = pending
-      val key = synchronized(lock) { this.key }
+      val (snapshot, fingerprint, key, endpoint, transport) = pending
       val debug = isDebugEnabled
       val registration = snapshot.registrationBody().toMutableMap()
       synchronized(lock) {
@@ -356,7 +370,7 @@ internal class Engine(
       when (val verdict = Verdict.of(transport.send(HttpRequest("POST", DEVICES, body, key)))) {
         is Verdict.Accepted -> {
           failures = 0
-          recordRegistration(snapshot, verdict.body, debug)
+          recordRegistration(snapshot, key, endpoint, verdict.body, debug)
         }
         is Verdict.Retry -> {
           failures += 1
@@ -407,7 +421,7 @@ internal class Engine(
 
       if (state.token == null || key.isEmpty()) return
 
-      val fingerprint = state.fingerprint()
+      val fingerprint = registrationFingerprint(state, key, endpoint)
 
       if (fingerprint == store.registeredFingerprint || fingerprint == refusedFingerprint) return
 
@@ -430,13 +444,14 @@ internal class Engine(
       if (value != null && known != null) value(known)
     }
 
-  private fun recordRegistration(snapshot: DeviceState, response: String, debug: Boolean) {
+  private fun recordRegistration(snapshot: DeviceState, key: String, endpoint: String, response: String, debug: Boolean) {
     // The server names the device it created. Kept for `debugInfo()`, and read
     // leniently: a registration that succeeded must not be undone by a response
     // shape.
     val id = (Json.parse(response) as? Map<*, *>)?.get("id") as? String
 
     val handler = synchronized(lock) {
+      if (this.key != key || this.endpoint != endpoint) return@synchronized null
       val changed = id != null && id != store.deviceId
       state = state.copy(tags = state.tags.filter { (name, value) ->
         !snapshot.tags.containsKey(name) || snapshot.tags[name] != value
@@ -446,7 +461,7 @@ internal class Engine(
         patch.filter { (name, value) -> !sent.containsKey(name) || sent[name] != value }
       })
       store.state = state
-      store.registeredFingerprint = snapshot.copy(tags = emptyMap(), typedTags = emptyMap()).fingerprint()
+      store.registeredFingerprint = registrationFingerprint(snapshot.copy(tags = emptyMap(), typedTags = emptyMap()), key, endpoint)
       refusedFingerprint = null
       if (id != null) store.deviceId = id
       lastRegistrationAtMs = clock.nowMs()
