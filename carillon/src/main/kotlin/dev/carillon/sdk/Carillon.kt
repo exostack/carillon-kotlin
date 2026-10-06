@@ -20,7 +20,7 @@ import java.util.TimeZone
  */
 object Carillon {
   /** The SDK version reported at registration. */
-  const val SDK_VERSION: String = "0.4.1"
+  const val SDK_VERSION: String = "0.5.0"
 
   /**
  * Default API endpoint. Override for staging or local development.
@@ -90,6 +90,7 @@ object Carillon {
     // a coroutine of the engine's own, and the registration loop absorbs the
     // delay exactly as it absorbs a device that starts up offline.
     engine.acquireToken()
+    ReceiptRecovery.start(application)
   }
 
   /**
@@ -164,7 +165,7 @@ object Carillon {
  * carrying a Carillon stamp or an FCM notification block; a data-only message
  * from another sender is ignored. A message that is displayable but not
  * Carillon's still reaches [onReceived], with a null `deliveryId`, so an app with
- * two senders has one path. No received event is reported.
+ * two senders has one path. Receipt events are queued independently of presentation.
  */
   @JvmStatic fun didReceive(message: RemoteMessage) =
     receive(message.data, AlertContent.of(message))

@@ -37,13 +37,14 @@ internal interface Store {
   var events: List<QueuedEvent>
 }
 
-/** One open, waiting to be reported. */
+/** One receipt or open, waiting to be reported. */
 internal data class QueuedEvent(val type: String, val deliveryId: String, val atMs: Long) {
   fun json(): Map<String, Any?> =
     mapOf("type" to type, "delivery_id" to deliveryId, "at" to Iso8601.format(atMs))
 
   companion object {
     const val OPENED = "opened"
+    const val RECEIVED = "received"
   }
 }
 
