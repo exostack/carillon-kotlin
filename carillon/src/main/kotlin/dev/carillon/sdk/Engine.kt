@@ -1,6 +1,7 @@
 package dev.carillon.sdk
 
 import java.security.MessageDigest
+import java.util.UUID
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -519,20 +520,15 @@ internal class Engine(
     return true
   }
 
-  /**
-   * A message the app received rather than one somebody tapped.
-   *
-   * Nothing is queued. `received` needs a Notification Service Extension on iOS
-   * and is a later, additive decision for the protocol as a whole; reporting one
-   * from Android alone would produce an event type the API refuses and a figure
-   * that means one thing on one platform and nothing on the other. Display is
-   * not decided here either: it belongs to `NotificationDisplay`, which needs a
-   * context this class deliberately never holds.
-   */
-  fun didReceive(data: Map<String, String>) {
-    Log.write(isDebugEnabled) {
-      "received ${deliveryIdIn(data) ?: "a notification that is not ours"}"
+  fun didReceive(data: Map<String, String>, atMs: Long = clock.nowMs()) {
+    val id = deliveryIdIn(data) ?: return
+    if (runCatching { UUID.fromString(id).toString().equals(id, ignoreCase = true) }.getOrDefault(false).not()) return
+    synchronized(lock) {
+      if (store.events.none { it.type == QueuedEvent.RECEIVED && it.deliveryId == id }) {
+        store.events = store.events + QueuedEvent(QueuedEvent.RECEIVED, id, atMs)
+      }
     }
+    startEventLoop()
   }
 
   /**

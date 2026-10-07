@@ -129,7 +129,7 @@ internal object NotificationDisplay {
     }
     if (image != null) notification.setStyle(NotificationCompat.BigPictureStyle().bigPicture(image))
     else received.body?.let { notification.setStyle(NotificationCompat.BigTextStyle().bigText(it)) }
-    manager.notify(received.deliveryId, 0, notification.build())
+    manager.notify("carillon:${received.deliveryId}", 0, notification.build())
   }
 }
 

@@ -7,7 +7,7 @@ Carillon SDK for Android API 24 and later. Uses Firebase Messaging and Kotlin co
 Add the SDK to your app dependencies:
 
 ```kotlin
-implementation("com.exostack:carillon:0.4.1")
+implementation("com.exostack:carillon:0.5.0")
 ```
 
 Configure Firebase for your app package name, add `google-services.json`, and
@@ -54,8 +54,7 @@ override fun onMessageReceived(message: RemoteMessage) = Carillon.didReceive(mes
 ```
 
 `didReceive` runs the foreground display path described under
-[Foreground notifications](#foreground-notifications); it never reports a
-received event. Forward launcher intents to report opens:
+[Foreground notifications](#foreground-notifications) and queues a `received` event. Forward launcher intents to report opens:
 
 ```kotlin
 override fun onCreate(savedInstanceState: Bundle?) {
@@ -264,3 +263,20 @@ registration fingerprint contains a hash of the configuration, not the raw key.
 An existing device ID cannot claim a row in a different Carillon app: the server
 resolves identity within the app authorized by the key. Switching apps does not
 delete the previous app's registration or clear your application's user identity.
+
+## Receipt tracking
+
+SDK 0.5.0 reports `received` when a Carillon message reaches `didReceive`, independently
+of whether your callback shows or suppresses it. At configuration and whenever an
+activity resumes, it also checks notifications still present in the notification tray.
+This recovers background notifications that Android displays without calling your service.
+It does not recover notifications already dismissed or replaced.
+
+Automatic background recovery uses the default `android.notification.tag` supplied by
+Carillon. A custom tag overrides it and disables this recovery for that notification;
+foreground callbacks still report receipts. Keep the default tag when you need recovery.
+
+Receipts are queued persistently and retried offline. A receipt does not call `onOpened`.
+The delivery trace shows `received_at` (the observed time) and `received_reported_at`
+(the server report time). Missing receipts do not prove that a notification was not
+received, and a receipt does not prove that a person read it.

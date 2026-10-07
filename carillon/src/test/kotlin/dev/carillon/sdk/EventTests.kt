@@ -228,18 +228,16 @@ class EventTests {
   }
 
   @Test
-  fun queuesNothingForAMessageThatWasMerelyReceived() = runBlocking {
-    // `received` needs a Notification Service Extension on iOS and is a later,
-    // additive decision for the protocol as a whole. Reporting one from Android
-    // alone would produce an event type the API refuses, and a figure that means
-    // one thing on one platform and nothing on the other.
-    val transport = FakeTransport()
-    val engine = makeEngine(transport = transport)
-
-    engine.didReceive(payload(deliveryId))
-    engine.settle()
-
-    assertEquals(0, engine.debugInfo().queuedEvents)
-    assertTrue(transport.requests.isEmpty())
+  fun queuesReceiptsOfflineWithoutCreatingOpens() = runBlocking {
+    val store = MemoryStore()
+    val engine = makeEngine(store = store)
+    engine.didReceive(payload(deliveryId), 1234L)
+    engine.didReceive(payload(deliveryId), 5678L)
+    engine.didReceive(emptyMap())
+    assertEquals(1, store.events.size)
+    assertEquals("received", store.events.single().type)
+    assertEquals(1234L, store.events.single().atMs)
+    engine.didOpen(payload(deliveryId))
+    assertEquals(listOf("received", "opened"), store.events.map { it.type })
   }
 }
